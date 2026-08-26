@@ -57,6 +57,8 @@ export const enum Theme {
   forest = 'forest',
   castle = 'castle',
   beach = 'beach',
+  volcano = 'volcano',
+  snow = 'snow',
 }
 
 export const enum ColorThemeKind {
@@ -82,4 +84,20 @@ export const ALL_SCALES = [
   PokemonSize.medium,
   PokemonSize.large,
 ];
-export const ALL_THEMES = [Theme.none, Theme.forest, Theme.castle, Theme.beach];
+export const ALL_THEMES = [
+  Theme.none,
+  Theme.forest,
+  Theme.castle,
+  Theme.beach,
+  Theme.volcano,
+  Theme.snow,
+];
+
+/**
+ * Themes that ship a `midground-*.png` parallax layer (Background Beauty,
+ * Phase 3). Themes not listed here simply render without the drifting layer.
+ */
+export const THEMES_WITH_MIDGROUND: ReadonlyArray<Theme> = [
+  Theme.volcano,
+  Theme.snow,
+];

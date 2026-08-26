@@ -161,6 +161,15 @@ export abstract class BasePokemonType implements IPokemonType {
   }
 
   positionLeft(left: number): void {
+    // Hard right-edge clamp: never let a sprite leave the visible panel, even
+    // after the sidebar is resized narrower while a state is mid-walk.
+    // (width is 0 until the sprite image loads — skip the clamp in that case.)
+    if (this.width > 0) {
+      const maxX = window.innerWidth - this.width;
+      if (left > maxX) {
+        left = maxX;
+      }
+    }
     this._left = left;
     this.el.style.left = `${this._left}px`;
     this.repositionAccompanyingElements();
