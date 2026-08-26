@@ -182,3 +182,57 @@ For each size:
 1. Which test number failed and what you saw (screenshot helps).
 2. Help → **Toggle Developer Tools** → Console tab → copy any red errors.
 3. Confirm compile ran: `npm run compile` output ended without errors.
+
+---
+
+## Addendum — new Background Beauty features
+
+These cover the features added when the plan in `BACKGROUND_BEAUTY.md` was
+implemented. Run them after Tests 1–10.
+
+### Test 11 — New scenes (volcano, snow)
+
+1. Settings → **Vscode Pokemon › Theme** → try `volcano`, then `snow`.
+
+- [ ] `volcano` shows a banded ember sky, a volcano cone, and a dark basalt
+      ground with glowing lava cracks.
+- [ ] `snow` shows a pale sky, hills, and pine trees on a snow field.
+- [ ] Pokémon walk on the raised ground line in both.
+
+### Test 12 — Theme picker button (no Settings needed)
+
+1. Look at the **VS Code Pokémon** panel title bar (Explorer sidebar) — there
+   should be a small landscape icon (also in the palette:
+   *"Pokemon Coding: Select background theme"*).
+2. Click it → pick `beach`.
+
+- [ ] QuickPick lists all 6 options, current one marked "Current".
+- [ ] Panel repaints to the beach scene instantly, no restart.
+- [ ] Pressing Esc cancels without changing anything.
+
+### Test 13 — Parallax drift (volcano/snow only)
+
+1. Set theme to `snow` (or `volcano`) and spawn a Pokémon.
+2. Watch the sky for ~30 seconds.
+
+- [ ] A faint cloud/ember band drifts slowly sideways behind the Pokémon.
+- [ ] Set `motion: reduced` → drift stops completely.
+- [ ] Set theme to `forest` → no drift layer, no broken-image artifacts.
+
+### Test 14 — Day/night cycle
+
+1. Set theme to `snow`, then enable **Vscode Pokemon › Day Night Cycle**.
+
+- [ ] Between 7 PM–6 AM the **dark** variant loads; between 6 AM–7 PM the
+      **light** variant loads — regardless of your VS Code color theme.
+- [ ] Turning the setting off returns control to your VS Code color theme
+      (Test 5 behaviour).
+
+### Test 15 — Random theme
+
+1. Enable **Vscode Pokemon › Random Theme** and reload the Dev Host (F5).
+
+- [ ] A random scene (never `none`) appears on session start.
+- [ ] Reload again within the same window — the scene **stays the same**
+      (cached per session, no flicker).
+- [ ] Disable the setting → your fixed `theme` choice returns.

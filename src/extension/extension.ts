@@ -33,6 +33,10 @@ const DEFAULT_COLOR = PokemonColor.default;
 const DEFAULT_POKEMON_TYPE = getDefaultPokemonType();
 const DEFAULT_POSITION = ExtPosition.panel;
 const DEFAULT_THEME = Theme.none;
+const RANDOM_THEME_CACHE_KEY = 'vscode-pokemon.random-theme-cache';
+
+/** Workspace memento, set in activate(); used to keep random-theme stable. */
+let extensionState: vscode.Memento | undefined;
 
 class PokemonQuickPickItem implements vscode.QuickPickItem {
   constructor(
@@ -74,7 +78,29 @@ function getConfiguredTheme(): Theme {
   if (ALL_THEMES.lastIndexOf(theme) === -1) {
     theme = DEFAULT_THEME;
   }
+  // Random rotation (Background Beauty, Phase 5): pick a scene once per
+  // session and cache it so webview rebuilds don't flicker between scenes.
+  const randomTheme = vscode.workspace
+    .getConfiguration('vscode-pokemon')
+    .get<boolean>('randomTheme', false);
+  if (randomTheme && extensionState) {
+    const cached = extensionState.get<Theme>(RANDOM_THEME_CACHE_KEY);
+    if (cached && ALL_THEMES.lastIndexOf(cached) !== -1) {
+      return cached;
+    }
+    const scenes = ALL_THEMES.filter((t) => t !== Theme.none);
+    const picked = scenes[Math.floor(Math.random() * scenes.length)];
+    void extensionState.update(RANDOM_THEME_CACHE_KEY, picked);
+    return picked;
+  }
   return theme;
+}
+
+/** Day/night auto-switching (Background Beauty, Phase 4). */
+function getConfiguredDayNightCycle(): boolean {
+  return vscode.workspace
+    .getConfiguration('vscode-pokemon')
+    .get<boolean>('dayNightCycle', false);
 }
 
 function getConfiguredThemeKind(): ColorThemeKind {
@@ -456,6 +482,7 @@ function getWebview(): vscode.Webview | undefined {
 export function activate(context: vscode.ExtensionContext) {
   // Reset the Pokemon translations cache at startup to load the correct language
   localize.resetPokemonTranslationsCache();
+  extensionState = context.workspaceState;
 
   context.subscriptions.push(
     vscode.commands.registerCommand('vscode-pokemon.start', async () => {
@@ -1096,6 +1123,39 @@ export function activate(context: vscode.ExtensionContext) {
     ),
   );
 
+  // Theme picker (Background Beauty, Phase 2): one-click scene switching.
+  // Writing the setting triggers the onDidChangeConfiguration listener below,
+  // which repaints the panel automatically.
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      'vscode-pokemon.select-theme',
+      async () => {
+        const config = vscode.workspace.getConfiguration('vscode-pokemon');
+        const current = getConfiguredTheme();
+        const items: Array<vscode.QuickPickItem & { value: Theme }> =
+          ALL_THEMES.map((t) => ({
+            label:
+              t === Theme.none
+                ? `$(circle-slash) ${vscode.l10n.t('None')}`
+                : `$(device-camera) ${vscode.l10n.t(t)}`,
+            description: t === current ? vscode.l10n.t('Current') : undefined,
+            value: t,
+          }));
+        const pick = await vscode.window.showQuickPick(items, {
+          placeHolder: vscode.l10n.t('Pick a background scene'),
+        });
+        if (!pick || pick.value === current) {
+          return;
+        }
+        await config.update(
+          'theme',
+          pick.value,
+          vscode.ConfigurationTarget.Global,
+        );
+      },
+    ),
+  );
+
   // Listening to configuration changes
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(
@@ -1105,6 +1165,8 @@ export function activate(context: vscode.ExtensionContext) {
           e.affectsConfiguration('vscode-pokemon.pokemonType') ||
           e.affectsConfiguration('vscode-pokemon.pokemonSize') ||
           e.affectsConfiguration('vscode-pokemon.theme') ||
+          e.affectsConfiguration('vscode-pokemon.randomTheme') ||
+          e.affectsConfiguration('vscode-pokemon.dayNightCycle') ||
           e.affectsConfiguration('workbench.colorTheme')
         ) {
           const spec = PokemonSpecification.fromConfiguration();
@@ -1432,6 +1494,7 @@ class PokemonWebviewContainer implements IPokemonPanel {
 			<body>
                 <canvas id="pokemonCanvas"></canvas>
                 <div id="pokemonContainer"></div>
+                <div id="midground"></div>
                 <div id="foreground"></div>
                 <script nonce="${nonce}" src="${scriptUri}"></script>
                 <script nonce="${nonce}">
@@ -1449,6 +1512,7 @@ class PokemonWebviewContainer implements IPokemonPanel {
                             debug: ${getConfiguredDebug()},
                             maxPokemon: ${getConfiguredMaxPokemon()},
                             motion: "${getConfiguredMotion()}",
+                            dayNightCycle: ${getConfiguredDayNightCycle()},
                         },
                     );
                 </script>

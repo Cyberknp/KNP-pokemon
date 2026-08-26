@@ -40,6 +40,7 @@
         "onCommand:vscode-pokemon.import-pokemon-list",
         "onCommand:vscode-pokemon.configure-keybindings",
         "onCommand:vscode-pokemon.change-pokemon-language",
+        "onCommand:vscode-pokemon.select-theme",
         "onWebviewPanel:pokemonCoding",
         "onView:explorer",
         "onView:pokemonView",
@@ -75,6 +76,11 @@
                     "command": "vscode-pokemon.delete-pokemon",
                     "when": "view == pokemonView",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "vscode-pokemon.select-theme",
+                    "when": "view == pokemonView",
+                    "group": "navigation@4"
                 }
             ]
         },
@@ -144,6 +150,15 @@
                 "command": "vscode-pokemon.change-pokemon-language",
                 "title": "Change Pokemon language",
                 "category": "Pokemon Coding"
+            },
+            {
+                "command": "vscode-pokemon.select-theme",
+                "title": "Select background theme",
+                "category": "Pokemon Coding",
+                "icon": {
+                    "dark": "media/icon/dark-scene.svg",
+                    "light": "media/icon/light-scene.svg"
+                }
             }
         ],
         "keybindings": [
@@ -198,10 +213,22 @@
                             "none",
                             "forest",
                             "castle",
-                            "beach"
+                            "beach",
+                            "volcano",
+                            "snow"
                         ],
                         "default": "none",
                         "description": "Background theme assets for your pokemon"
+                    },
+                    "vscode-pokemon.dayNightCycle": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Automatically switch scenes to their dark variant at night (7 PM - 6 AM) and light variant by day, regardless of your VS Code color theme."
+                    },
+                    "vscode-pokemon.randomTheme": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Pick a random background scene once per session instead of using the fixed 'theme' setting."
                     },
                     "vscode-pokemon.defaultPokemon": {
                         "type": "array",
