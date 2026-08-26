@@ -249,19 +249,45 @@
                         ],
                         "default": "auto",
                         "description": "Language for Pokemon names. 'auto' uses VS Code's language, or 'en-US' for English names."
+                    },
+                    "vscode-pokemon.maxPokemon": {
+                        "type": "number",
+                        "default": 6,
+                        "minimum": 1,
+                        "maximum": 15,
+                        "description": "Maximum number of Pokemon that can be active at once. Lower values reduce CPU usage from animated sprites."
+                    },
+                    "vscode-pokemon.motion": {
+                        "type": "string",
+                        "enum": [
+                            "system",
+                            "always",
+                            "reduced"
+                        ],
+                        "default": "system",
+                        "description": "Animation motion preference. 'system' follows your OS reduced-motion setting, 'always' animates, 'reduced' freezes animations."
+                    },
+                    "vscode-pokemon.debug": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Enable verbose debug logging from the Pokemon webview panel."
                     }
                 }
             }
         ]
     },
     "scripts": {
-        "vscode:prepublish": "npm run compile",
+        "vscode:prepublish": "npm run compile:prod",
         "compile:panel": "webpack",
+        "compile:panel:prod": "NODE_ENV=production webpack",
         "compile:extension": "tsc -p ./tsconfig.extension.json",
         "compile": "npm run compile:panel && npm run compile:extension",
+        "compile:prod": "npm run compile:panel:prod && npm run compile:extension",
         "watch": "webpack && tsc -watch -p ./tsconfig.extension.json",
         "lint": "eslint src --ext ts",
-        "lint:fix": "eslint src --ext ts --fix"
+        "lint:fix": "eslint src --ext ts --fix",
+        "test": "vitest run",
+        "optimize-assets": "node scripts/optimize-assets.mjs"
     },
     "devDependencies": {
         "@rbarilani/remove-source-map-url-webpack-plugin": "^1.1.0",
@@ -271,9 +297,11 @@
         "@typescript-eslint/parser": "^5.29.0",
         "eslint": "^8.18.0",
         "eslint-plugin-unused-imports": "^2.0.0",
+        "jsdom": "^30.0.1",
         "ts-loader": "^9.3.0",
         "typescript": "^4.7.4",
         "typescript-eslint": "^0.0.1-alpha.0",
+        "vitest": "^4.1.11",
         "webpack": "5.95.0",
         "webpack-cli": "^4.10.0"
     },

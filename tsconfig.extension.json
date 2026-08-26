@@ -19,6 +19,9 @@
 		"node_modules",
 		".vscode-test",
 		"src/panel",
-		"src/test"
+		"src/test",
+		"tests",
+		"scripts",
+		"vitest.config.ts"
 	]
 }
