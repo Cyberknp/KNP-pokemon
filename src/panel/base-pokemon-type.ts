@@ -293,8 +293,8 @@ export abstract class BasePokemonType implements IPokemonType {
 
   chooseNextState(fromState: States): States {
     // Work out next state
-    var possibleNextStates: States[] | undefined = undefined;
-    for (var i = 0; i < this.sequence.sequenceStates.length; i++) {
+    let possibleNextStates: States[] | undefined = undefined;
+    for (let i = 0; i < this.sequence.sequenceStates.length; i++) {
       if (this.sequence.sequenceStates[i].state === fromState) {
         possibleNextStates = this.sequence.sequenceStates[i].possibleNextStates;
       }
@@ -341,7 +341,7 @@ export abstract class BasePokemonType implements IPokemonType {
       }
     }
 
-    var frameResult = this.currentState.nextFrame();
+    const frameResult = this.currentState.nextFrame();
     if (frameResult === FrameResult.stateComplete) {
       // If recovering from swipe..
       if (this.holdState && this.holdStateEnum) {
@@ -352,16 +352,16 @@ export abstract class BasePokemonType implements IPokemonType {
         return;
       }
 
-      var nextState = this.chooseNextState(this.currentStateEnum);
+      const nextState = this.chooseNextState(this.currentStateEnum);
       this.currentState = resolveState(nextState, this);
       this.currentStateEnum = nextState;
     } else if (frameResult === FrameResult.stateCancel) {
       if (this.currentStateEnum === States.chase) {
-        var nextState = this.chooseNextState(States.idleWithBall);
+        const nextState = this.chooseNextState(States.idleWithBall);
         this.currentState = resolveState(nextState, this);
         this.currentStateEnum = nextState;
       } else if (this.currentStateEnum === States.chaseFriend) {
-        var nextState = this.chooseNextState(States.idleWithBall);
+        const nextState = this.chooseNextState(States.idleWithBall);
         this.currentState = resolveState(nextState, this);
         this.currentStateEnum = nextState;
       }

@@ -1,4 +1,3 @@
-// This script will be run within the webview itself
 import { randomName } from '../common/names';
 import {
   PokemonSize,
@@ -30,8 +29,101 @@ declare global {
   function acquireVsCodeApi(): VscodeStateApi;
 }
 
-export var allPokemon: IPokemonCollection = new PokemonCollection();
-var pokemonCounter: number;
+export interface PokemonPanelOptions {
+  debug?: boolean;
+  maxPokemon?: number;
+  motion?: 'system' | 'always' | 'reduced';
+}
+
+const TICK_MS = 100;
+const FRIEND_SCAN_TICKS = 5; // run the O(n²) friend scan every 5th tick
+const POSITION_SAVE_MS = 30_000; // safety-net persistence cadence
+
+export const allPokemon: IPokemonCollection = new PokemonCollection();
+let pokemonCounter: number;
+
+/* ------------------------------------------------------------------ */
+/* Debug logging (Item 5)                                              */
+/* ------------------------------------------------------------------ */
+let debugEnabled = false;
+
+function log(...args: unknown[]): void {
+  if (debugEnabled) {
+    console.log('[vscode-pokemon]', ...args);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Single global animation loop (Items 1–4)                            */
+/*                                                                     */
+/* One timer advances every Pokémon. Timers are never created per      */
+/* Pokémon, so removing a Pokémon cannot leak an interval, and         */
+/* pause/resume just clears/creates the single handle.                 */
+/* ------------------------------------------------------------------ */
+let loopTimer: ReturnType<typeof setInterval> | null = null;
+let tickCount = 0;
+let lastPositionSave = 0;
+let motionReduced = false;
+let activeStateApi: VscodeStateApi | undefined;
+
+function prefersReducedMotion(setting: PokemonPanelOptions['motion']): boolean {
+  if (setting === 'reduced') {
+    return true;
+  }
+  if (setting === 'always') {
+    return false;
+  }
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+}
+
+function ensureAnimationLoop(stateApi?: VscodeStateApi): void {
+  if (stateApi) {
+    activeStateApi = stateApi;
+  }
+  if (loopTimer !== null || motionReduced || !activeStateApi) {
+    return;
+  }
+  tickCount = 0;
+  lastPositionSave = Date.now();
+  loopTimer = setInterval(() => {
+    tickCount++;
+    // Advance every Pokémon exactly once per tick (Item 1)
+    allPokemon.pokemonCollection.forEach((element) => {
+      element.pokemon.nextFrame();
+    });
+    // Friend matching does not need 10 Hz resolution (Item 1, step 4)
+    if (tickCount % FRIEND_SCAN_TICKS === 0) {
+      allPokemon.seekNewFriends().forEach((message) => {
+        activeStateApi?.postMessage({
+          text: message,
+          command: 'info',
+        });
+      });
+    }
+    // Low-frequency safety net so positions survive reloads (Item 3)
+    if (Date.now() - lastPositionSave >= POSITION_SAVE_MS) {
+      lastPositionSave = Date.now();
+      saveState(activeStateApi);
+    }
+  }, TICK_MS);
+}
+
+function pauseAnimationLoop(): void {
+  if (loopTimer !== null) {
+    clearInterval(loopTimer);
+    loopTimer = null;
+  }
+}
+
+function stopAnimationLoop(): void {
+  pauseAnimationLoop();
+  activeStateApi = undefined;
+}
+
+window.addEventListener('unload', stopAnimationLoop);
 
 function normalizePokemonCounter(counter: number | undefined): number {
   if (counter === undefined || Number.isNaN(counter)) {
@@ -41,81 +133,33 @@ function normalizePokemonCounter(counter: number | undefined): number {
   return Math.max(0, counter);
 }
 
+/* ------------------------------------------------------------------ */
+/* Floor heights per theme/size (Item 12.3)                            */
+/* ------------------------------------------------------------------ */
+const FLOOR_HEIGHTS: Record<Theme, Partial<Record<PokemonSize, number>>> = {
+  [Theme.none]: {},
+  [Theme.forest]: {
+    [PokemonSize.nano]: 23,
+    [PokemonSize.small]: 30,
+    [PokemonSize.medium]: 40,
+    [PokemonSize.large]: 65,
+  },
+  [Theme.castle]: {
+    [PokemonSize.nano]: 45,
+    [PokemonSize.small]: 60,
+    [PokemonSize.medium]: 80,
+    [PokemonSize.large]: 120,
+  },
+  [Theme.beach]: {
+    [PokemonSize.nano]: 45,
+    [PokemonSize.small]: 60,
+    [PokemonSize.medium]: 80,
+    [PokemonSize.large]: 120,
+  },
+};
+
 function calculateFloor(size: PokemonSize, theme: Theme): number {
-  switch (theme) {
-    case Theme.forest:
-      switch (size) {
-        case PokemonSize.small:
-          return 30;
-        case PokemonSize.medium:
-          return 40;
-        case PokemonSize.large:
-          return 65;
-        case PokemonSize.nano:
-        default:
-          return 23;
-      }
-    case Theme.castle:
-      switch (size) {
-        case PokemonSize.small:
-          return 60;
-        case PokemonSize.medium:
-          return 80;
-        case PokemonSize.large:
-          return 120;
-        case PokemonSize.nano:
-        default:
-          return 45;
-      }
-    case Theme.beach:
-      switch (size) {
-        case PokemonSize.small:
-          return 60;
-        case PokemonSize.medium:
-          return 80;
-        case PokemonSize.large:
-          return 120;
-        case PokemonSize.nano:
-        default:
-          return 45;
-      }
-  }
-  return 0;
-}
-
-function handleMouseOver(e: MouseEvent) {
-  var el = e.currentTarget as HTMLDivElement;
-  allPokemon.pokemonCollection.forEach((element) => {
-    if (element.collision === el) {
-      if (!element.pokemon.canSwipe) {
-        return;
-      }
-      element.pokemon.swipe();
-    }
-  });
-}
-
-function startAnimations(
-  collision: HTMLDivElement,
-  pokemon: IPokemonType,
-  stateApi?: VscodeStateApi,
-) {
-  if (!stateApi) {
-    stateApi = acquireVsCodeApi();
-  }
-
-  collision.addEventListener('mouseover', handleMouseOver);
-  setInterval(() => {
-    var updates = allPokemon.seekNewFriends();
-    updates.forEach((message) => {
-      stateApi?.postMessage({
-        text: message,
-        command: 'info',
-      });
-    });
-    pokemon.nextFrame();
-    saveState(stateApi);
-  }, 100);
+  return FLOOR_HEIGHTS[theme]?.[size] ?? 0;
 }
 
 function addPokemonToPanel(
@@ -132,19 +176,19 @@ function addPokemonToPanel(
   stateApi?: VscodeStateApi,
   incrementCounter: boolean = true,
 ): PokemonElement {
-  var pokemonSpriteElement: HTMLImageElement = document.createElement('img');
+  const pokemonSpriteElement: HTMLImageElement = document.createElement('img');
   pokemonSpriteElement.className = 'pokemon';
   (document.getElementById('pokemonContainer') as HTMLDivElement).appendChild(
     pokemonSpriteElement,
   );
 
-  var collisionElement: HTMLDivElement = document.createElement('div');
+  const collisionElement: HTMLDivElement = document.createElement('div');
   collisionElement.className = 'collision';
   (document.getElementById('pokemonContainer') as HTMLDivElement).appendChild(
     collisionElement,
   );
 
-  var speechBubbleElement: HTMLImageElement = document.createElement('img');
+  const speechBubbleElement: HTMLImageElement = document.createElement('img');
   speechBubbleElement.className = `bubble bubble-${pokemonSize} b-${originalSpriteSize}`;
   speechBubbleElement.src = `${basePokemonUri}/heart.png`;
   (document.getElementById('pokemonContainer') as HTMLDivElement).appendChild(
@@ -152,20 +196,13 @@ function addPokemonToPanel(
   );
 
   const root = `${basePokemonUri}/${gen}/${pokemonType}/${pokemonColor}`;
-  console.log(
-    'Creating new pokemon : ',
-    pokemonType,
-    root,
-    pokemonColor,
-    pokemonSize,
-    name,
-    originalSpriteSize,
-  );
+  log('Creating new pokemon : ', pokemonType, root, pokemonColor, pokemonSize, name);
+  let newPokemon: IPokemonType;
   try {
     if (!availableColors(pokemonType).includes(pokemonColor)) {
       throw new InvalidPokemonException('Invalid color for pokemon type');
     }
-    var newPokemon = createPokemon(
+    newPokemon = createPokemon(
       pokemonType,
       pokemonSpriteElement,
       collisionElement,
@@ -182,7 +219,14 @@ function addPokemonToPanel(
     if (incrementCounter) {
       pokemonCounter++;
     }
-    startAnimations(collisionElement, newPokemon, stateApi);
+
+    // Hover-to-swipe bound to this specific Pokémon (Item 7) — no O(n) scan.
+    collisionElement.addEventListener('mouseover', () => {
+      if (!newPokemon.canSwipe) {
+        return;
+      }
+      newPokemon.swipe();
+    });
   } catch (e: unknown) {
     // Remove elements
     pokemonSpriteElement.remove();
@@ -228,7 +272,8 @@ function addPokemonToPanel(
 
     if (pokemonColor === PokemonColor.shiny) {
       const shinyOverlay = document.createElement('img');
-      shinyOverlay.src = `${basePokemonUri}/shiny-anim.gif?t=${Date.now()}`;
+      // No cache-busting query param — let the browser reuse the cached asset (Item 6)
+      shinyOverlay.src = `${basePokemonUri}/shiny-anim.gif`;
       shinyOverlay.className = 'shiny-overlay';
       shinyOverlay.style.left = pokemonSpriteElement.style.left;
       shinyOverlay.style.bottom = pokemonSpriteElement.style.bottom;
@@ -276,7 +321,7 @@ function removePokemonFromPanel(
     stateApi = acquireVsCodeApi();
   }
   // Remove elements
-  var pokemon = allPokemon.locate(message.name);
+  const pokemon = allPokemon.locate(message.name);
 
   if (!pokemon) {
     stateApi?.postMessage({
@@ -286,9 +331,7 @@ function removePokemonFromPanel(
     return;
   }
 
-  var pokemonSpriteElement = pokemon.el;
-  console.log('Removing pokemon ', message.name);
-  console.log('pokemon:', pokemon);
+  log('Removing pokemon ', message.name);
 
   // Remove from collection immediately so rapid deletes of Pokemon don't interfere with each other
   allPokemon.removeFromCollection(message.name);
@@ -303,7 +346,7 @@ function removePokemonFromPanel(
   });
 
   // pokemon fade out
-  pokemonSpriteElement.classList.add('fade-out');
+  pokemon.el.classList.add('fade-out');
 
   const pokeballEl = document.createElement('div');
   pokeballEl.classList.add('pokeball-sprite');
@@ -319,13 +362,13 @@ function removePokemonFromPanel(
   pokeballEl.offsetHeight;
   pokeballEl.classList.add('pokeball-close');
 
-  pokemonSpriteElement.addEventListener(
+  pokemon.el.addEventListener(
     'animationend',
     (e) => {
       if (e.animationName !== 'pokemon-fade-out') {
         return;
       }
-      pokemonSpriteElement.remove();
+      pokemon.el.remove();
     },
     { once: true },
   );
@@ -346,7 +389,7 @@ export function saveState(stateApi?: VscodeStateApi) {
   if (!stateApi) {
     stateApi = acquireVsCodeApi();
   }
-  var state = new PokemonPanelState();
+  const state = new PokemonPanelState();
   state.pokemonStates = [];
 
   allPokemon.pokemonCollection.forEach((pokemonItem) => {
@@ -376,31 +419,26 @@ function recoverState(
   if (!stateApi) {
     stateApi = acquireVsCodeApi();
   }
-  var state = stateApi?.getState();
+  const state = stateApi?.getState();
   if (!state) {
     pokemonCounter = 0;
   } else {
     pokemonCounter = normalizePokemonCounter(state.pokemonCounter);
   }
 
-  var recoveryMap: Map<IPokemonType, PokemonElementState> = new Map();
-  console.log(
-    'recoverState: saved pokemon count =',
-    state?.pokemonStates?.length ?? 0,
-  );
+  const recoveryMap: Map<IPokemonType, PokemonElementState> = new Map();
+  log('recoverState: saved pokemon count =', state?.pokemonStates?.length ?? 0);
   state?.pokemonStates?.forEach((p) => {
-    console.log('Recovering pokemon ', p.pokemonType, p.pokemonName);
     try {
-      console.log('Adding pokemon to panel for recovery');
-      var newPokemon = addPokemonToPanel(
+      const newPokemon = addPokemonToPanel(
         p.pokemonType ?? 'bulbasaur',
         basePokemonUri,
         p.pokemonGeneration ?? 'gen1',
         p.originalSpriteSize ?? 32,
         p.pokemonColor ?? PokemonColor.default,
         pokemonSize,
-        parseInt(p.elLeft ?? '0'),
-        parseInt(p.elBottom ?? '0'),
+        parseInt(p.elLeft ?? '0', 10),
+        parseInt(p.elBottom ?? '0', 10),
         floor,
         p.pokemonName ?? randomName(),
         stateApi,
@@ -409,9 +447,7 @@ function recoverState(
       allPokemon.push(newPokemon);
       recoveryMap.set(newPokemon.pokemon, p);
     } catch (InvalidPokemonException) {
-      console.log(
-        'State had invalid pokemon (' + p.pokemonType + '), discarding.',
-      );
+      log('State had invalid pokemon (' + p.pokemonType + '), discarding.');
     }
   });
   recoveryMap.forEach((state, pokemon) => {
@@ -421,9 +457,8 @@ function recoverState(
     }
 
     // Resolve friend relationships
-    var friend = undefined;
     if (state.pokemonFriend) {
-      friend = allPokemon.locate(state.pokemonFriend);
+      const friend = allPokemon.locate(state.pokemonFriend);
       if (friend) {
         pokemon.recoverFriend(friend.pokemon);
       }
@@ -440,12 +475,12 @@ let canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D;
 function initCanvas() {
   canvas = document.getElementById('pokemonCanvas') as HTMLCanvasElement;
   if (!canvas) {
-    console.log('Canvas not ready');
+    log('Canvas not ready');
     return;
   }
   ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   if (!ctx) {
-    console.log('Canvas context not ready');
+    log('Canvas context not ready');
     return;
   }
   ctx.canvas.width = window.innerWidth;
@@ -463,16 +498,24 @@ export function pokemonPanelApp(
   throwBallWithMouse: boolean,
   gen: string,
   originalSpriteSize: number,
+  options: PokemonPanelOptions = {},
   stateApi?: VscodeStateApi,
 ) {
-  var floor = 0;
+  let floor = 0;
   if (!stateApi) {
     stateApi = acquireVsCodeApi();
   }
+  debugEnabled = options.debug === true;
+  const maxPokemon =
+    options.maxPokemon !== undefined && options.maxPokemon > 0
+      ? Math.floor(options.maxPokemon)
+      : 6;
+  motionReduced = prefersReducedMotion(options.motion);
+
   // Apply Theme backgrounds
   const foregroundEl = document.getElementById('foreground');
   if (theme !== Theme.none) {
-    var _themeKind = '';
+    let _themeKind = '';
     switch (themeKind) {
       case ColorThemeKind.dark:
         _themeKind = 'dark';
@@ -497,16 +540,20 @@ export function pokemonPanelApp(
     foregroundEl!.style.backgroundImage = '';
   }
 
-  console.log(
+  log(
     'Starting pokemon session',
     pokemonColor,
     basePokemonUri,
     pokemonType,
     throwBallWithMouse,
+    { maxPokemon, motionReduced },
   );
 
+  const partyIsFull = (): boolean =>
+    allPokemon.pokemonCollection.length >= maxPokemon;
+
   // New session
-  var state = stateApi?.getState();
+  const state = stateApi?.getState();
 
   const hasRecoverableState =
     state !== undefined &&
@@ -514,23 +561,46 @@ export function pokemonPanelApp(
     state.pokemonStates.length > 0;
 
   if (hasRecoverableState) {
-    console.log('Recovering state - ', state);
+    log('Recovering state - ', state);
     recoverState(basePokemonUri, gen, pokemonSize, floor, stateApi);
   } else {
-    console.log('No recoverable pokemon state, starting an empty session.');
+    log('No recoverable pokemon state, starting an empty session.');
     pokemonCounter = normalizePokemonCounter(state?.pokemonCounter);
     saveState(stateApi);
   }
 
   initCanvas();
 
+  // React live to OS-level reduced-motion preference changes (Item 11)
+  if (options.motion !== 'reduced' && options.motion !== 'always') {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      motionReduced = e.matches;
+      if (motionReduced) {
+        saveState(stateApi);
+        pauseAnimationLoop();
+      } else {
+        ensureAnimationLoop(stateApi);
+      }
+    };
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', onMotionChange);
+    }
+  }
+
   // Handle messages sent from the extension to the webview
   window.addEventListener('message', (event): void => {
     const message = event.data; // The json data that the extension sent
-    console.log('Received message in panel:', message);
     switch (message.command) {
-      case 'spawn-pokemon':
-        console.log('adding pokemon to panel from message', message);
+      case 'spawn-pokemon': {
+        if (partyIsFull()) {
+          stateApi?.postMessage({
+            command: 'info',
+            text: `Party is full (${maxPokemon}) — recall a Pokémon first.`,
+          });
+          break;
+        }
+        log('adding pokemon to panel from message', message);
         allPokemon.push(
           addPokemonToPanel(
             message.type,
@@ -548,10 +618,19 @@ export function pokemonPanelApp(
         );
         saveState(stateApi);
         break;
+      }
 
-      case 'spawn-random-pokemon':
-        var [randomPokemonType, randomPokemonConfig] = getRandomPokemonConfig();
-        console.log('adding random pokemon to panel from message');
+      case 'spawn-random-pokemon': {
+        if (partyIsFull()) {
+          stateApi?.postMessage({
+            command: 'info',
+            text: `Party is full (${maxPokemon}) — recall a Pokémon first.`,
+          });
+          break;
+        }
+        const [randomPokemonType, randomPokemonConfig] =
+          getRandomPokemonConfig();
+        log('adding random pokemon to panel from message');
         allPokemon.push(
           addPokemonToPanel(
             randomPokemonType,
@@ -569,9 +648,10 @@ export function pokemonPanelApp(
         );
         saveState(stateApi);
         break;
+      }
 
-      case 'list-pokemon':
-        var pokemonCollection = allPokemon.pokemonCollection;
+      case 'list-pokemon': {
+        const pokemonCollection = allPokemon.pokemonCollection;
         stateApi?.postMessage({
           command: 'list-pokemon',
           text: pokemonCollection
@@ -582,23 +662,25 @@ export function pokemonPanelApp(
             .join('\n'),
         });
         break;
+      }
 
-      case 'roll-call':
-        var pokemonCollection = allPokemon.pokemonCollection;
-        // go through every single
-        // pokemon and then print out their name
-        pokemonCollection.forEach((pokemon) => {
+      case 'roll-call': {
+        // go through every single pokemon and then print out their name
+        allPokemon.pokemonCollection.forEach((pokemon) => {
           stateApi?.postMessage({
             command: 'info',
             text: `${pokemon.pokemon.emoji} ${pokemon.pokemon.name} (${pokemon.color} ${pokemon.type}): ${pokemon.pokemon.hello}`,
           });
         });
         break;
+      }
+
       case 'delete-pokemon':
         removePokemonFromPanel(message, stateApi);
         break;
-      case 'reset-pokemon':
-        var pokemonToRemove = [...allPokemon.pokemonCollection];
+
+      case 'reset-pokemon': {
+        const pokemonToRemove = [...allPokemon.pokemonCollection];
         pokemonToRemove.forEach((pokemon) => {
           removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
         });
@@ -609,13 +691,25 @@ export function pokemonPanelApp(
           saveState(stateApi);
         }, 500);
         break;
+      }
+
+      // Real pause/resume driven by panel visibility (Item 4).
+      // Replaces the old handler that incorrectly set pokemonCounter = 1.
       case 'pause-pokemon':
-        pokemonCounter = 1;
         saveState(stateApi);
+        pauseAnimationLoop();
+        break;
+
+      case 'resume-pokemon':
+        ensureAnimationLoop(stateApi);
         break;
     }
   });
+
+  // Start the single shared animation loop once, after recovery (Item 1)
+  ensureAnimationLoop(stateApi);
 }
+
 window.addEventListener('resize', function () {
   initCanvas();
 });

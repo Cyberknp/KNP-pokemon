@@ -107,7 +107,7 @@ export class PokemonCollection implements IPokemonCollection {
     if (this._pokemonCollection.length <= 1) {
       return [];
     } // You can't be friends with yourself.
-    var messages = new Array<string>(0);
+    const messages = new Array<string>(0);
     this._pokemonCollection.forEach((pokemonInCollection) => {
       if (pokemonInCollection.pokemon.hasFriend) {
         return;
@@ -125,12 +125,6 @@ export class PokemonCollection implements IPokemonCollection {
             pokemonInCollection.pokemon.left + pokemonInCollection.pokemon.width
         ) {
           // We found a possible new friend..
-          console.log(
-            pokemonInCollection.pokemon.name,
-            ' wants to be friends with ',
-            potentialFriend.pokemon.name,
-            '.',
-          );
           if (
             pokemonInCollection.pokemon.makeFriendsWith(potentialFriend.pokemon)
           ) {
