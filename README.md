@@ -1,6 +1,6 @@
 <div align='center'>
 
-# VS Code Pokémon (Custom)
+# KNP Pokémon
 
 ![icon](icon.png)
 
@@ -21,12 +21,19 @@
 
 ## What's different from the original
 
-- 🎾 **Improved Pokéball recall/release UX** — hover Pokéball button per Pokémon,
-  QuickPick release flow, recall-all cascade, and a configurable party cap.
-- 🖼️ **Selectable pixel-art backgrounds** for the pet panel (grass, cave, beach,
-  town, route, water, snow) with live switching and persistence.
-- 🔧 General customization: movement tweaks, speed/idle tuning, and roster
-  cleanup across Generations 1–5.
+- 🎾 **Hover Pokéball recall** — hover any companion and click its Pokéball to
+  recall it instantly, no command palette needed.
+- 🎉 **Recall-all cascade** — "Remove All" recalls the party in a rippling
+  stagger instead of all at once.
+- 👥 **Configurable party cap** (`vscode-pokemon.maxPokemon`) with a friendly
+  "party is full" notice.
+- ♻️ **Unique-name safeguard** — freshly spawned companions can never share a
+  name, so recall/friend lookups stay unambiguous.
+- ⚡ **Performance overhaul** — one shared animation loop, debounced state
+  saves, pause-on-hide, reduced-motion support (`vscode-pokemon.motion`),
+  debug logging toggle, production builds with console stripping.
+- 🧪 **Quality tooling** — ESLint strict rules, vitest state-machine test
+  suite, GIF asset-compression pipeline.
 
 ## Building & running locally
 
@@ -44,15 +51,30 @@ npm run compile
 
 ```bash
 npx @vscode/vsce package   # produces a .vsix you can install locally:
-code --install-extension vscode-pokemon-custom-0.0.1.vsix
+code --install-extension knp-pokemon-0.1.0.vsix
 ```
 
 ## Usage
 
 Open the command palette (`Ctrl+Shift+P` on Windows/Linux or `Cmd(⌘)+Shift+P`
 on MacOS) and run the "Start Pokemon coding session" command to spawn your
-first Pokémon. Release new ones via the picker, recall them by clicking their
-Pokéball, or use "Recall All" to clear the panel.
+first Pokémon. Release new ones via the picker (`Alt+Shift+W` for a random
+spawn), hover a companion and click its Pokéball to recall it individually, or
+use "Remove All Pokemon" to watch the cascade clear the panel.
+
+### Settings
+
+| Setting | Default | Description |
+|---|---|---|
+| `vscode-pokemon.pokemonSize` | `medium` | Sprite scale (nano/small/medium/large) |
+| `vscode-pokemon.position` | `explorer` | Sidebar view or editor tab |
+| `vscode-pokemon.theme` | `none` | Background scene (none/forest/castle/beach) |
+| `vscode-pokemon.defaultPokemon` | `[]` | Party auto-spawned at startup |
+| `vscode-pokemon.shinyOdds` | `8192` | 1-in-N shiny chance |
+| `vscode-pokemon.pokemonLanguage` | `auto` | Language for Pokémon names |
+| `vscode-pokemon.maxPokemon` | `6` | Maximum simultaneous Pokémon |
+| `vscode-pokemon.motion` | `system` | Animation preference (system/always/reduced) |
+| `vscode-pokemon.debug` | `false` | Verbose webview logging |
 
 ## Credits
 

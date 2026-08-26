@@ -223,18 +223,25 @@ export class IdleWithBallState extends AbstractStaticState {
   holdTime = 30;
 }
 
+/**
+ * Right-edge walk boundary, evaluated per frame so a panel resize (sidebar
+ * dragged narrower/wider) is respected immediately instead of using a value
+ * cached at state construction.
+ */
+export function rightWalkBoundary(): number {
+  return Math.floor(window.innerWidth * 0.95);
+}
+
 export class WalkRightState implements IState {
   label = States.walkRight;
   pokemon: IPokemonType;
   spriteLabel = 'walk';
   horizontalDirection = HorizontalDirection.right;
-  leftBoundary: number;
   speedMultiplier = 1;
   idleCounter: number;
   holdTime = 60;
 
   constructor(pokemon: IPokemonType) {
-    this.leftBoundary = Math.floor(window.innerWidth * 0.95);
     this.pokemon = pokemon;
     this.idleCounter = 0;
   }
@@ -252,7 +259,7 @@ export class WalkRightState implements IState {
 
     if (
       this.pokemon.isMoving &&
-      this.pokemon.left >= this.leftBoundary - this.pokemon.width
+      this.pokemon.left >= rightWalkBoundary() - this.pokemon.width
     ) {
       return FrameResult.stateComplete;
     } else if (!this.pokemon.isMoving && this.idleCounter > this.holdTime) {

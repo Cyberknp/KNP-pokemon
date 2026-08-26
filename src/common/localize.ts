@@ -50,11 +50,20 @@ function getPokemonLocale(): string {
 }
 
 /**
- * Gets the extension path, with caching
+ * Gets the extension path, with caching.
+ * Tries this fork's extension id first, then the upstream id (in case the
+ * fork is developed side-by-side with an installed upstream copy), and
+ * finally lets the caller fall back to a relative path.
  */
 function getExtensionPath(): string | undefined {
-  const extension = vscode.extensions.getExtension('jakobhoeg.vscode-pokemon');
-  return extension?.extensionPath;
+  const candidateIds = ['Cyberknp.knp-pokemon', 'jakobhoeg.vscode-pokemon'];
+  for (const id of candidateIds) {
+    const extension = vscode.extensions.getExtension(id);
+    if (extension) {
+      return extension.extensionPath;
+    }
+  }
+  return undefined;
 }
 
 /**
