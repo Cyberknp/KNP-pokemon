@@ -1,19 +1,19 @@
 {
-    "name": "vscode-pokemon",
-    "displayName": "vscode-pokemon",
+    "name": "knp-pokemon",
+    "displayName": "KNP Pokémon",
     "description": "Pokémon for your VS Code",
-    "version": "5.0.0",
+    "version": "0.1.0",
     "engines": {
         "vscode": "^1.73.0"
     },
     "l10n": "./l10n",
     "repository": {
         "type": "github",
-        "url": "https://github.com/jakobhoeg/vscode-pokemon"
+        "url": "https://github.com/Cyberknp/KNP-pokemon"
     },
-    "homepage": "https://github.com/jakobhoeg/vscode-pokemon",
-    "bugs": "https://github.com/jakobhoeg/vscode-pokemon/issues",
-    "publisher": "jakobhoeg",
+    "homepage": "https://github.com/Cyberknp/KNP-pokemon#readme",
+    "bugs": "https://github.com/Cyberknp/KNP-pokemon/issues",
+    "publisher": "Cyberknp",
     "pricing": "Free",
     "categories": [
         "Other"

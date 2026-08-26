@@ -8,7 +8,10 @@ src/**
 **/.eslintrc.json
 **/*.map
 **/*.ts
-.build-out/
-coverage/
-docs/
-node_modules
+tests/**
+scripts/**
+Docs/**
+coverage/**
+.github/**
+IMPROVEMENT_PLAN.md
+PR1_REVIEW.md

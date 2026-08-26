@@ -197,6 +197,21 @@ function addPokemonToPanel(
 
   const root = `${basePokemonUri}/${gen}/${pokemonType}/${pokemonColor}`;
   log('Creating new pokemon : ', pokemonType, root, pokemonColor, pokemonSize, name);
+
+  // Unique-name safeguard (Phase R4): fresh spawns must never share a name,
+  // otherwise locate-by-name (delete/friend lookup) becomes ambiguous.
+  // Recovery passes incrementCounter=false and keeps saved names verbatim so
+  // persisted friend references stay resolvable.
+  let finalName = name;
+  if (incrementCounter) {
+    let suffix = 1;
+    while (allPokemon.locate(finalName)) {
+      suffix += 1;
+      finalName = `${name}-${suffix}`;
+    }
+  }
+  name = finalName;
+
   let newPokemon: IPokemonType;
   try {
     if (!availableColors(pokemonType).includes(pokemonColor)) {
@@ -227,6 +242,19 @@ function addPokemonToPanel(
       }
       newPokemon.swipe();
     });
+
+    // Hover Pokéball click-to-recall (Phase R2). The button lives *inside*
+    // the collision box so it follows the Pokémon automatically and inherits
+    // its :hover state without any per-tick position updates.
+    const recallButton = document.createElement('div');
+    recallButton.className = 'pokeball-hover';
+    recallButton.title = `Recall ${name}`;
+    recallButton.addEventListener('click', (e) => {
+      // Don't let the click bubble into other panel interactions.
+      e.stopPropagation();
+      removePokemonFromPanel({ name: newPokemon.name }, stateApi);
+    });
+    collisionElement.appendChild(recallButton);
   } catch (e: unknown) {
     // Remove elements
     pokemonSpriteElement.remove();
@@ -681,15 +709,29 @@ export function pokemonPanelApp(
 
       case 'reset-pokemon': {
         const pokemonToRemove = [...allPokemon.pokemonCollection];
-        pokemonToRemove.forEach((pokemon) => {
-          removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+        // Recall-all cascade (Phase R4): stagger removals so the Pokéballs
+        // ripple through the party instead of vanishing simultaneously.
+        const staggerMs = motionReduced ? 0 : 150;
+        const cascadeDelay =
+          pokemonToRemove.length > 1
+            ? (pokemonToRemove.length - 1) * staggerMs
+            : 0;
+        pokemonToRemove.forEach((pokemon, index) => {
+          const delay = index * staggerMs;
+          if (delay === 0) {
+            removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+          } else {
+            setTimeout(() => {
+              removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+            }, delay);
+          }
         });
-        // Wait for animations to complete before resetting
+        // Wait for the last animation to complete before resetting state
         setTimeout(() => {
           allPokemon.reset();
           pokemonCounter = 0;
           saveState(stateApi);
-        }, 500);
+        }, cascadeDelay + 500);
         break;
       }
 

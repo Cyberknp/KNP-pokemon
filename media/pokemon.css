@@ -137,6 +137,43 @@ img.pokemon {
 	z-index: 999;
 }
 
+/* Hover Pokéball click-to-recall button (Phase R2).
+   Rendered inside .collision so it tracks its Pokémon with zero JS work. */
+.pokeball-hover {
+	position: absolute;
+	top: -12px;
+	right: -12px;
+	width: 24px;
+	height: 24px;
+	background-image: url('pokeball_sprite_sheet.png');
+	background-repeat: no-repeat;
+	/* 6 vertical frames — show the closed ball (top frame) */
+	background-size: 100% 600%;
+	background-position: center top;
+	image-rendering: pixelated;
+	border-radius: 50%;
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 120ms ease-in-out, transform 120ms ease-in-out;
+	z-index: 1000;
+}
+
+.collision:hover .pokeball-hover {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.pokeball-hover:hover {
+	transform: scale(1.15);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pokeball-hover {
+		transition: none;
+	}
+}
+
 .bubble {
 	image-rendering: pixelated;
 	position: absolute;
