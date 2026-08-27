@@ -128,6 +128,10 @@ function pauseAnimationLoop(): void {
 function stopAnimationLoop(): void {
   pauseAnimationLoop();
   activeStateApi = undefined;
+  if (dayNightTimer !== null) {
+    clearInterval(dayNightTimer);
+    dayNightTimer = null;
+  }
 }
 
 window.addEventListener('unload', stopAnimationLoop);
