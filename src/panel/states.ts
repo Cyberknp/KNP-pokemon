@@ -429,14 +429,14 @@ export class JumpDownLeftState implements IState {
 }
 
 export class StandRightState extends AbstractStaticState {
-  label = States.standRight;
+  label = States.standLeft;
   spriteLabel = 'stand';
   horizontalDirection = HorizontalDirection.right;
   holdTime = 60;
 }
 
 export class StandLeftState extends AbstractStaticState {
-  label = States.standRight;
+  label = States.standLeft;
   spriteLabel = 'stand';
   horizontalDirection = HorizontalDirection.left;
   holdTime = 60;
