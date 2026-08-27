@@ -29,10 +29,43 @@ declare global {
   function acquireVsCodeApi(): VscodeStateApi;
 }
 
+/* Midground availability cache (Background Beauty Phase 3) — dynamic detection
+   instead of hardcoded list. Key: `${theme}/${variant}/${size}`. */
+const midgroundCache = new Map<string, boolean>();
+
+/** Checks if a midground asset exists for the given theme/variant/size. */
+async function hasMidgroundAsset(
+  basePokemonUri: string,
+  theme: Theme,
+  variant: 'dark' | 'light',
+  size: PokemonSize,
+): Promise<boolean> {
+  const key = `${theme}/${variant}/${size}`;
+  const cached = midgroundCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const url = `${basePokemonUri}/backgrounds/${theme}/midground-${variant}-${size}.png`;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      midgroundCache.set(key, true);
+      resolve(true);
+    };
+    img.onerror = () => {
+      midgroundCache.set(key, false);
+      resolve(false);
+    };
+    img.src = url;
+  });
+}
+
 export interface PokemonPanelOptions {
   debug?: boolean;
   maxPokemon?: number;
   motion?: 'system' | 'always' | 'reduced';
+  /** Auto-pick the dark scene variant at night, light by day (Phase 4). */
+  dayNightCycle?: boolean;
 }
 
 const TICK_MS = 100;
@@ -88,6 +121,7 @@ function ensureAnimationLoop(stateApi?: VscodeStateApi): void {
   }
   tickCount = 0;
   lastPositionSave = Date.now();
+  document.body.classList.remove('pokemon-paused');
   loopTimer = setInterval(() => {
     tickCount++;
     // Advance every Pokémon exactly once per tick (Item 1)
@@ -116,11 +150,18 @@ function pauseAnimationLoop(): void {
     clearInterval(loopTimer);
     loopTimer = null;
   }
+  // Freeze the parallax drift too (Background Beauty Phase 3) so hidden or
+  // reduced-motion panels cost zero compositing work.
+  document.body.classList.add('pokemon-paused');
 }
 
 function stopAnimationLoop(): void {
   pauseAnimationLoop();
   activeStateApi = undefined;
+  if (dayNightTimer !== null) {
+    clearInterval(dayNightTimer);
+    dayNightTimer = null;
+  }
 }
 
 window.addEventListener('unload', stopAnimationLoop);
@@ -151,15 +192,121 @@ const FLOOR_HEIGHTS: Record<Theme, Partial<Record<PokemonSize, number>>> = {
     [PokemonSize.large]: 120,
   },
   [Theme.beach]: {
-    [PokemonSize.nano]: 45,
-    [PokemonSize.small]: 60,
-    [PokemonSize.medium]: 80,
-    [PokemonSize.large]: 120,
+    [PokemonSize.nano]: 20,
+    [PokemonSize.small]: 28,
+    [PokemonSize.medium]: 36,
+    [PokemonSize.large]: 56,
+  },
+  [Theme.volcano]: {
+    [PokemonSize.nano]: 24,
+    [PokemonSize.small]: 32,
+    [PokemonSize.medium]: 40,
+    [PokemonSize.large]: 64,
+  },
+  [Theme.snow]: {
+    [PokemonSize.nano]: 24,
+    [PokemonSize.small]: 32,
+    [PokemonSize.medium]: 40,
+    [PokemonSize.large]: 64,
   },
 };
 
-function calculateFloor(size: PokemonSize, theme: Theme): number {
+export function calculateFloor(size: PokemonSize, theme: Theme): number {
   return FLOOR_HEIGHTS[theme]?.[size] ?? 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Background scenes (Background Beauty, Phases 1–4)                  */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Resolves which PNG color-variant to load for a scene.
+ * Exported for unit testing.
+ */
+export function resolveSceneVariant(
+  themeKind: ColorThemeKind,
+  dayNightCycle: boolean,
+  hour = new Date().getHours(),
+): 'dark' | 'light' {
+  if (dayNightCycle) {
+    return hour >= 19 || hour < 6 ? 'dark' : 'light';
+  }
+  return themeKind === ColorThemeKind.dark ? 'dark' : 'light';
+}
+
+/** The drifting parallax layer element (created lazily, Phase 3). */
+let midgroundEl: HTMLDivElement | null = null;
+
+/**
+ * Applies all scene layers (background / midground / foreground) for a theme.
+ * Centralising this lets the day/night timer re-paint without a webview reload.
+ */
+async function applySceneLayers(
+  basePokemonUri: string,
+  theme: Theme,
+  themeKind: ColorThemeKind,
+  pokemonSize: PokemonSize,
+  dayNightCycle: boolean,
+): Promise<{ floor: number; variant: 'dark' | 'light' }> {
+  const foregroundEl = document.getElementById('foreground');
+  if (theme === Theme.none) {
+    document.body.style.backgroundImage = '';
+    if (foregroundEl) {
+      foregroundEl.style.backgroundImage = '';
+    }
+    if (midgroundEl) {
+      midgroundEl.style.backgroundImage = '';
+    }
+    return { floor: 0, variant: 'light' };
+  }
+
+  const variant = resolveSceneVariant(themeKind, dayNightCycle);
+  const sceneDir = `${basePokemonUri}/backgrounds/${theme}`;
+
+  document.body.style.backgroundImage = `url('${sceneDir}/background-${variant}-${pokemonSize}.png')`;
+  if (foregroundEl) {
+    foregroundEl.style.backgroundImage = `url('${sceneDir}/foreground-${variant}-${pokemonSize}.png')`;
+  }
+
+  // Parallax midground (Phase 3) — dynamically detect asset availability.
+  if (midgroundEl) {
+    const hasMidground = await hasMidgroundAsset(basePokemonUri, theme, variant, pokemonSize);
+    midgroundEl.style.backgroundImage = hasMidground
+      ? `url('${sceneDir}/midground-${variant}-${pokemonSize}.png')`
+      : '';
+  }
+
+  return { floor: calculateFloor(pokemonSize, theme), variant };
+}
+
+/**
+ * Hourly re-evaluation of the day/night variant (Phase 4). One timer per
+ * panel, cleared before a new one is created so theme switches never leak.
+ */
+let dayNightTimer: ReturnType<typeof setInterval> | null = null;
+
+function startDayNightCycle(
+  basePokemonUri: string,
+  theme: Theme,
+  themeKind: ColorThemeKind,
+  pokemonSize: PokemonSize,
+): void {
+  if (dayNightTimer !== null) {
+    clearInterval(dayNightTimer);
+    dayNightTimer = null;
+  }
+  if (theme === Theme.none) {
+    return;
+  }
+  let lastHour = new Date().getHours();
+  dayNightTimer = setInterval(() => {
+    const hour = new Date().getHours();
+    if (hour === lastHour) {
+      return;
+    }
+    lastHour = hour;
+    void applySceneLayers(basePokemonUri, theme, themeKind, pokemonSize, true);
+  }, 60_000);
 }
 
 function addPokemonToPanel(
@@ -197,6 +344,21 @@ function addPokemonToPanel(
 
   const root = `${basePokemonUri}/${gen}/${pokemonType}/${pokemonColor}`;
   log('Creating new pokemon : ', pokemonType, root, pokemonColor, pokemonSize, name);
+
+  // Unique-name safeguard (Phase R4): fresh spawns must never share a name,
+  // otherwise locate-by-name (delete/friend lookup) becomes ambiguous.
+  // Recovery passes incrementCounter=false and keeps saved names verbatim so
+  // persisted friend references stay resolvable.
+  let finalName = name;
+  if (incrementCounter) {
+    let suffix = 1;
+    while (allPokemon.locate(finalName)) {
+      suffix += 1;
+      finalName = `${name}-${suffix}`;
+    }
+  }
+  name = finalName;
+
   let newPokemon: IPokemonType;
   try {
     if (!availableColors(pokemonType).includes(pokemonColor)) {
@@ -227,6 +389,19 @@ function addPokemonToPanel(
       }
       newPokemon.swipe();
     });
+
+    // Hover Pokéball click-to-recall (Phase R2). The button lives *inside*
+    // the collision box so it follows the Pokémon automatically and inherits
+    // its :hover state without any per-tick position updates.
+    const recallButton = document.createElement('div');
+    recallButton.className = 'pokeball-hover';
+    recallButton.title = `Recall ${name}`;
+    recallButton.addEventListener('click', (e) => {
+      // Don't let the click bubble into other panel interactions.
+      e.stopPropagation();
+      removePokemonFromPanel({ name: newPokemon.name }, stateApi);
+    });
+    collisionElement.appendChild(recallButton);
   } catch (e: unknown) {
     // Remove elements
     pokemonSpriteElement.remove();
@@ -488,7 +663,7 @@ function initCanvas() {
 }
 
 // It cannot access the main VS Code APIs directly.
-export function pokemonPanelApp(
+export async function pokemonPanelApp(
   basePokemonUri: string,
   theme: Theme,
   themeKind: ColorThemeKind,
@@ -511,34 +686,26 @@ export function pokemonPanelApp(
       ? Math.floor(options.maxPokemon)
       : 6;
   motionReduced = prefersReducedMotion(options.motion);
+  document.body.classList.toggle('pokemon-reduced-motion', motionReduced);
+  document.body.classList.toggle(
+    'pokemon-force-motion',
+    options.motion === 'always',
+  );
 
-  // Apply Theme backgrounds
-  const foregroundEl = document.getElementById('foreground');
-  if (theme !== Theme.none) {
-    let _themeKind = '';
-    switch (themeKind) {
-      case ColorThemeKind.dark:
-        _themeKind = 'dark';
-        break;
-      case ColorThemeKind.light:
-        _themeKind = 'light';
-        break;
-      case ColorThemeKind.highContrast:
-      default:
-        _themeKind = 'light';
-        break;
-    }
-
-    document.body.style.backgroundImage = `url('${basePokemonUri}/backgrounds/${theme}/background-${_themeKind}-${pokemonSize}.png')`;
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    foregroundEl!.style.backgroundImage = `url('${basePokemonUri}/backgrounds/${theme}/foreground-${_themeKind}-${pokemonSize}.png')`;
-
-    floor = calculateFloor(pokemonSize, theme); // Themes have pokemonCollection at a specified height from the ground
-  } else {
-    document.body.style.backgroundImage = '';
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    foregroundEl!.style.backgroundImage = '';
-  }
+  // Apply Theme backgrounds (Background Beauty Phases 1–4)
+  const dayNightCycle = options.dayNightCycle === true;
+  const existingMidground = document.getElementById('midground');
+  midgroundEl =
+    existingMidground instanceof HTMLDivElement ? existingMidground : null;
+  const scene = await applySceneLayers(
+    basePokemonUri,
+    theme,
+    themeKind,
+    pokemonSize,
+    dayNightCycle,
+  );
+  floor = scene.floor;
+  startDayNightCycle(basePokemonUri, theme, themeKind, pokemonSize);
 
   log(
     'Starting pokemon session',
@@ -576,6 +743,7 @@ export function pokemonPanelApp(
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const onMotionChange = (e: MediaQueryListEvent) => {
       motionReduced = e.matches;
+      document.body.classList.toggle('pokemon-reduced-motion', motionReduced);
       if (motionReduced) {
         saveState(stateApi);
         pauseAnimationLoop();
@@ -681,15 +849,29 @@ export function pokemonPanelApp(
 
       case 'reset-pokemon': {
         const pokemonToRemove = [...allPokemon.pokemonCollection];
-        pokemonToRemove.forEach((pokemon) => {
-          removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+        // Recall-all cascade (Phase R4): stagger removals so the Pokéballs
+        // ripple through the party instead of vanishing simultaneously.
+        const staggerMs = motionReduced ? 0 : 150;
+        const cascadeDelay =
+          pokemonToRemove.length > 1
+            ? (pokemonToRemove.length - 1) * staggerMs
+            : 0;
+        pokemonToRemove.forEach((pokemon, index) => {
+          const delay = index * staggerMs;
+          if (delay === 0) {
+            removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+          } else {
+            setTimeout(() => {
+              removePokemonFromPanel({ name: pokemon.pokemon.name }, stateApi);
+            }, delay);
+          }
         });
-        // Wait for animations to complete before resetting
+        // Wait for the last animation to complete before resetting state
         setTimeout(() => {
           allPokemon.reset();
           pokemonCounter = 0;
           saveState(stateApi);
-        }, 500);
+        }, cascadeDelay + 500);
         break;
       }
 
@@ -712,4 +894,11 @@ export function pokemonPanelApp(
 
 window.addEventListener('resize', function () {
   initCanvas();
+  // Pull any sprite that ended up outside the shrunken panel back into view.
+  allPokemon.pokemonCollection.forEach((element) => {
+    const maxX = window.innerWidth - element.pokemon.width;
+    if (element.pokemon.left > maxX) {
+      element.pokemon.positionLeft(Math.max(0, maxX));
+    }
+  });
 });

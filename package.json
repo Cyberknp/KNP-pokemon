@@ -1,19 +1,19 @@
 {
-    "name": "vscode-pokemon",
-    "displayName": "vscode-pokemon",
+    "name": "knp-pokemon",
+    "displayName": "KNP Pokémon",
     "description": "Pokémon for your VS Code",
-    "version": "5.0.0",
+    "version": "0.1.0",
     "engines": {
         "vscode": "^1.73.0"
     },
     "l10n": "./l10n",
     "repository": {
         "type": "github",
-        "url": "https://github.com/jakobhoeg/vscode-pokemon"
+        "url": "https://github.com/Cyberknp/KNP-pokemon"
     },
-    "homepage": "https://github.com/jakobhoeg/vscode-pokemon",
-    "bugs": "https://github.com/jakobhoeg/vscode-pokemon/issues",
-    "publisher": "jakobhoeg",
+    "homepage": "https://github.com/Cyberknp/KNP-pokemon#readme",
+    "bugs": "https://github.com/Cyberknp/KNP-pokemon/issues",
+    "publisher": "Cyberknp",
     "pricing": "Free",
     "categories": [
         "Other"
@@ -40,13 +40,13 @@
         "onCommand:vscode-pokemon.import-pokemon-list",
         "onCommand:vscode-pokemon.configure-keybindings",
         "onCommand:vscode-pokemon.change-pokemon-language",
+        "onCommand:vscode-pokemon.select-theme",
         "onWebviewPanel:pokemonCoding",
         "onView:explorer",
         "onView:pokemonView",
         "onStartupFinished"
     ],
     "main": "./out/extension/extension.js",
-    "browser": "./dist/web/extension-web.js",
     "contributes": {
         "views": {
             "explorer": [
@@ -75,6 +75,11 @@
                     "command": "vscode-pokemon.delete-pokemon",
                     "when": "view == pokemonView",
                     "group": "navigation@3"
+                },
+                {
+                    "command": "vscode-pokemon.select-theme",
+                    "when": "view == pokemonView",
+                    "group": "navigation@4"
                 }
             ]
         },
@@ -144,6 +149,15 @@
                 "command": "vscode-pokemon.change-pokemon-language",
                 "title": "Change Pokemon language",
                 "category": "Pokemon Coding"
+            },
+            {
+                "command": "vscode-pokemon.select-theme",
+                "title": "Select background theme",
+                "category": "Pokemon Coding",
+                "icon": {
+                    "dark": "media/icon/dark-scene.svg",
+                    "light": "media/icon/light-scene.svg"
+                }
             }
         ],
         "keybindings": [
@@ -198,10 +212,27 @@
                             "none",
                             "forest",
                             "castle",
-                            "beach"
+                            "beach",
+                            "volcano",
+                            "snow"
                         ],
                         "default": "none",
                         "description": "Background theme assets for your pokemon"
+                    },
+                    "vscode-pokemon.dayNightCycle": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Automatically switch scenes to their dark variant at night (7 PM - 6 AM) and light variant by day, regardless of your VS Code color theme."
+                    },
+                    "vscode-pokemon.randomTheme": {
+                        "type": "boolean",
+                        "default": false,
+                        "description": "Pick a random background scene once per session instead of using the fixed 'theme' setting."
+                    },
+                    "vscode-pokemon.throwBallWithMouse": {
+                        "type": "boolean",
+                        "default": true,
+                        "description": "Click on a Pokémon to throw a Pokéball and recall it."
                     },
                     "vscode-pokemon.defaultPokemon": {
                         "type": "array",
@@ -300,7 +331,6 @@
         "jsdom": "^30.0.1",
         "ts-loader": "^9.3.0",
         "typescript": "^4.7.4",
-        "typescript-eslint": "^0.0.1-alpha.0",
         "vitest": "^4.1.11",
         "webpack": "5.95.0",
         "webpack-cli": "^4.10.0"
