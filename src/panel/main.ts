@@ -5,7 +5,6 @@ import {
   PokemonType,
   Theme,
   ColorThemeKind,
-  THEMES_WITH_MIDGROUND,
   WebviewMessage,
 } from '../common/types';
 import { IPokemonType } from './states';
@@ -28,6 +27,37 @@ declare global {
     postMessage(message: WebviewMessage): void;
   }
   function acquireVsCodeApi(): VscodeStateApi;
+}
+
+/* Midground availability cache (Background Beauty Phase 3) — dynamic detection
+   instead of hardcoded list. Key: `${theme}/${variant}/${size}`. */
+const midgroundCache = new Map<string, boolean>();
+
+/** Checks if a midground asset exists for the given theme/variant/size. */
+async function hasMidgroundAsset(
+  basePokemonUri: string,
+  theme: Theme,
+  variant: 'dark' | 'light',
+  size: PokemonSize,
+): Promise<boolean> {
+  const key = `${theme}/${variant}/${size}`;
+  const cached = midgroundCache.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const url = `${basePokemonUri}/backgrounds/${theme}/midground-${variant}-${size}.png`;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      midgroundCache.set(key, true);
+      resolve(true);
+    };
+    img.onerror = () => {
+      midgroundCache.set(key, false);
+      resolve(false);
+    };
+    img.src = url;
+  });
 }
 
 export interface PokemonPanelOptions {
@@ -211,13 +241,13 @@ let midgroundEl: HTMLDivElement | null = null;
  * Applies all scene layers (background / midground / foreground) for a theme.
  * Centralising this lets the day/night timer re-paint without a webview reload.
  */
-function applySceneLayers(
+async function applySceneLayers(
   basePokemonUri: string,
   theme: Theme,
   themeKind: ColorThemeKind,
   pokemonSize: PokemonSize,
   dayNightCycle: boolean,
-): { floor: number; variant: 'dark' | 'light' } {
+): Promise<{ floor: number; variant: 'dark' | 'light' }> {
   const foregroundEl = document.getElementById('foreground');
   if (theme === Theme.none) {
     document.body.style.backgroundImage = '';
@@ -238,9 +268,10 @@ function applySceneLayers(
     foregroundEl.style.backgroundImage = `url('${sceneDir}/foreground-${variant}-${pokemonSize}.png')`;
   }
 
-  // Parallax midground (Phase 3) — only for themes that ship the asset.
+  // Parallax midground (Phase 3) — dynamically detect asset availability.
   if (midgroundEl) {
-    midgroundEl.style.backgroundImage = THEMES_WITH_MIDGROUND.includes(theme)
+    const hasMidground = await hasMidgroundAsset(basePokemonUri, theme, variant, pokemonSize);
+    midgroundEl.style.backgroundImage = hasMidground
       ? `url('${sceneDir}/midground-${variant}-${pokemonSize}.png')`
       : '';
   }
@@ -274,7 +305,7 @@ function startDayNightCycle(
       return;
     }
     lastHour = hour;
-    applySceneLayers(basePokemonUri, theme, themeKind, pokemonSize, true);
+    void applySceneLayers(basePokemonUri, theme, themeKind, pokemonSize, true);
   }, 60_000);
 }
 
@@ -632,7 +663,7 @@ function initCanvas() {
 }
 
 // It cannot access the main VS Code APIs directly.
-export function pokemonPanelApp(
+export async function pokemonPanelApp(
   basePokemonUri: string,
   theme: Theme,
   themeKind: ColorThemeKind,
@@ -666,13 +697,14 @@ export function pokemonPanelApp(
   const existingMidground = document.getElementById('midground');
   midgroundEl =
     existingMidground instanceof HTMLDivElement ? existingMidground : null;
-  floor = applySceneLayers(
+  const scene = await applySceneLayers(
     basePokemonUri,
     theme,
     themeKind,
     pokemonSize,
     dayNightCycle,
-  ).floor;
+  );
+  floor = scene.floor;
   startDayNightCycle(basePokemonUri, theme, themeKind, pokemonSize);
 
   log(
