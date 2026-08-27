@@ -95,7 +95,9 @@ export const ALL_THEMES = [
 
 /**
  * Themes that ship a `midground-*.png` parallax layer (Background Beauty,
- * Phase 3). Themes not listed here simply render without the drifting layer.
+ * Phase 3). Kept for backwards-compatibility / tests; runtime availability
+ * is now detected dynamically via hasMidgroundAsset in src/panel/main.ts
+ * instead of relying on this hardcoded list.
  */
 export const THEMES_WITH_MIDGROUND: ReadonlyArray<Theme> = [
   Theme.volcano,

@@ -35,7 +35,7 @@ const DEFAULT_POSITION = ExtPosition.panel;
 const DEFAULT_THEME = Theme.none;
 const RANDOM_THEME_CACHE_KEY = 'vscode-pokemon.random-theme-cache';
 
-/** Workspace memento, set in activate(); used to keep random-theme stable. */
+/** Global memento, set in activate(); used to keep random-theme stable. */
 let extensionState: vscode.Memento | undefined;
 
 class PokemonQuickPickItem implements vscode.QuickPickItem {
@@ -482,7 +482,7 @@ function getWebview(): vscode.Webview | undefined {
 export function activate(context: vscode.ExtensionContext) {
   // Reset the Pokemon translations cache at startup to load the correct language
   localize.resetPokemonTranslationsCache();
-  extensionState = context.workspaceState;
+  extensionState = context.globalState;
 
   context.subscriptions.push(
     vscode.commands.registerCommand('vscode-pokemon.start', async () => {
