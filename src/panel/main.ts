@@ -400,6 +400,13 @@ function addPokemonToPanel(
       // Don't let the click bubble into other panel interactions.
       e.stopPropagation();
       removePokemonFromPanel({ name: newPokemon.name }, stateApi);
+      // Notify the extension host so the persisted collection (globalState
+      // memento) no longer includes the recalled pokemon. Without this the
+      // pokemon respawns on the next session.
+      stateApi?.postMessage({
+        command: 'pokemon-released',
+        text: newPokemon.name,
+      });
     });
     collisionElement.appendChild(recallButton);
   } catch (e: unknown) {

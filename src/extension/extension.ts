@@ -494,6 +494,7 @@ export function activate(context: vscode.ExtensionContext) {
       } else {
         const spec = PokemonSpecification.fromConfiguration();
         PokemonPanel.createOrShow(
+          context,
           context.extensionUri,
           spec.color,
           spec.type,
@@ -1209,6 +1210,7 @@ export function activate(context: vscode.ExtensionContext) {
         webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
         const spec = PokemonSpecification.fromConfiguration();
         PokemonPanel.revive(
+          context,
           webviewPanel,
           context.extensionUri,
           spec.color,
@@ -1521,13 +1523,27 @@ class PokemonWebviewContainer implements IPokemonPanel {
   }
 }
 
-function handleWebviewMessage(message: WebviewMessage) {
+function handleWebviewMessage(
+  context: vscode.ExtensionContext,
+  message: WebviewMessage,
+) {
   switch (message.command) {
     case 'alert':
       void vscode.window.showErrorMessage(message.text);
       return;
     case 'info':
       void vscode.window.showInformationMessage(message.text);
+      return;
+    case 'pokemon-released':
+      // The webview recalled (removed) a pokemon; drop it from the persisted
+      // collection so it doesn't respawn on the next session.
+      void storeCollectionAsMemento(
+        context,
+        PokemonSpecification.collectionFromMemento(
+          context,
+          getConfiguredSize(),
+        ).filter((spec) => spec.name !== message.text),
+      );
       return;
   }
 }
@@ -1544,8 +1560,10 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   public static readonly viewType = 'pokemonCoding';
 
   private readonly _panel: vscode.WebviewPanel;
+  private readonly _context: vscode.ExtensionContext;
 
   public static createOrShow(
+    context: vscode.ExtensionContext,
     extensionUri: vscode.Uri,
     pokemonColor: PokemonColor,
     pokemonType: PokemonType,
@@ -1586,6 +1604,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     );
 
     PokemonPanel.currentPanel = new PokemonPanel(
+      context,
       panel,
       extensionUri,
       pokemonColor,
@@ -1619,6 +1638,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   }
 
   public static revive(
+    context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     pokemonColor: PokemonColor,
@@ -1631,6 +1651,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     throwBallWithMouse: boolean,
   ) {
     PokemonPanel.currentPanel = new PokemonPanel(
+      context,
       panel,
       extensionUri,
       pokemonColor,
@@ -1645,6 +1666,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   }
 
   private constructor(
+    context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     color: PokemonColor,
@@ -1669,6 +1691,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     );
 
     this._panel = panel;
+    this._context = context;
 
     // Set the webview's initial html content
     this._update();
@@ -1694,7 +1717,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
 
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
-      handleWebviewMessage,
+      (m: WebviewMessage) => handleWebviewMessage(this._context, m),
       null,
       this._disposables,
     );
@@ -1764,7 +1787,7 @@ class PokemonWebviewViewProvider extends PokemonWebviewContainer {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(
-      handleWebviewMessage,
+      (m: WebviewMessage) => handleWebviewMessage(this._context, m),
       null,
       this._disposables,
     );
@@ -1819,6 +1842,7 @@ function getNonce() {
 async function createPokemonPlayground(context: vscode.ExtensionContext) {
   const spec = PokemonSpecification.fromConfiguration();
   PokemonPanel.createOrShow(
+    context,
     context.extensionUri,
     spec.color,
     spec.type,
