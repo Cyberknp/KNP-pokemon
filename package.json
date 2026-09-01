@@ -39,7 +39,6 @@
         "onCommand:vscode-pokemon.export-pokemon-list",
         "onCommand:vscode-pokemon.import-pokemon-list",
         "onCommand:vscode-pokemon.configure-keybindings",
-        "onCommand:vscode-pokemon.change-pokemon-language",
         "onCommand:vscode-pokemon.select-theme",
         "onWebviewPanel:pokemonCoding",
         "onView:explorer",
@@ -143,11 +142,6 @@
             {
                 "command": "vscode-pokemon.configure-keybindings",
                 "title": "Configure keybindings",
-                "category": "Pokemon Coding"
-            },
-            {
-                "command": "vscode-pokemon.change-pokemon-language",
-                "title": "Change Pokemon language",
                 "category": "Pokemon Coding"
             },
             {
@@ -271,15 +265,6 @@
                         "default": 8192,
                         "minimum": 1,
                         "description": "Odds (1 in N) for a Pokémon to be shiny. Lower = more shinies. Default is 8192."
-                    },
-                    "vscode-pokemon.pokemonLanguage": {
-                        "type": "string",
-                        "enum": [
-                            "auto",
-                            "en-US"
-                        ],
-                        "default": "auto",
-                        "description": "Language for Pokemon names. 'auto' uses VS Code's language, or 'en-US' for English names."
                     },
                     "vscode-pokemon.maxPokemon": {
                         "type": "number",
