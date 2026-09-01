@@ -1,6 +1,6 @@
-# 🧪 Testing Vignette — KNP Pokémon Complete Validation (Updated)
+# 🧪 Testing Vignette — KNPs Pokémon Complete Validation (Updated)
 
-**Covers every feature shipped in `Features.md` (Unified Implementation):** Gen 1–5 companions, spawn/recall, shiny, sizing, party cap, motion, persistence, import/export, localization, 6 background scenes, parallax, day/night, random theme, hover recall, cascade, plus all B/S/F bug fixes.
+**Covers every feature shipped in `Features.md` (Unified Implementation):** Gen 1–5 companions, spawn/recall, shiny, sizing, party cap, motion, persistence, import/export, UI localization, 6 background scenes, parallax, day/night, random theme, hover recall, cascade, plus all B/S/F bug fixes.
 No prior knowledge needed. Tick boxes in order — all green means the extension functions without hiccups.
 
 > **Prerequisites**
@@ -33,14 +33,14 @@ npm run compile:prod   # prod: minified, drop_console
 - [ ] `tsc -p tsconfig.extension.json` exits 0 (no type errors)
 - [ ] Prod bundle strips `console.*` (search `main-bundle.js` — no `console.log`)
 
-### 0.3 Unit Tests (vitest + jsdom, 25 tests)
+### 0.3 Unit Tests (vitest + jsdom, 23 tests)
 ```bash
 npm test               # vitest run
 npm test -- --coverage # optional coverage
 ```
-- [ ] `tests/states.test.ts 17 tests` — static holdTimes, walk boundaries, run speed 1.6×, climb 100px, jump clamp, chase catch/cancel, `resolveState` fallback
+- [ ] `tests/states.test.ts 15 tests` — static holdTimes, walk boundaries, run speed 1.6×, climb 100px, jump clamp, `chaseFriend` cancel, `resolveState` fallback
 - [ ] `tests/backgrounds.test.ts 8 tests` — floor >0 per theme/size, `none` floor 0, monotonic floors, `resolveSceneVariant` dark/light + dayNight override (19/6 boundaries), registry contains volcano/snow, `THEMES_WITH_MIDGROUND` excludes `none`
-- [ ] `25 passed` in <1s
+- [ ] `23 passed` in <1s
 - [ ] Coverage: `states.ts` and `main.ts:calculateFloor/resolveSceneVariant` near 100% (new method: add `--coverage` threshold 90% in CI)
 
 ### 0.4 Static Checks (new methods)
@@ -117,14 +117,14 @@ npx @vscode/vsce package --no-yarn  # dry-run packaging
 1. Spawn 2 at known positions, `Reload Window` (`Ctrl+R`).
 - [ ] Same Pokémon at same `left/bottom`, same `States.stand*` labels recovered (B-2), friends re-linked.
 
-### Test 13 — Localization
-1. `Change Pokemon language` → `en-US` → pick `bulbasaur` → check label.
-2. Set `pokemonLanguage: auto` → restart with different VS Code locale.
-- [ ] Names translate, cache resets, `"None"` theme label localized via `bundle.l10n.*.json:35` (F-2).
+### Test 13 — UI Localization (F-2)
+1. Switch VS Code's display language → verify command titles, prompts and notifications follow the `bundle.l10n.*.json` files, and the theme picker's `"None"` label localizes.
+2. Spawn `bulbasaur` → species names are always English (`localize.ts`).
+- [ ] UI strings localize, `"None"` renders, species names stay English.
 
 ### Test 14 — Motion & Debug
 1. `motion: system` → toggle OS reduce-motion → panel pauses/resumes; `motion: reduced` → no drift/loop freeze; `motion: always` → animates even if OS says reduce.
-2. `debug: true` → Console shows `[vscode-pokemon]` logs; `debug: false` silences.
+2. `debug: true` → Console shows `[knps-pokemon]` logs; `debug: false` silences.
 
 ---
 
@@ -169,7 +169,7 @@ For each `forest`, `castle`, `beach`:
 
 ### Test 23 — Live Switching & Bad Input
 1. `forest → beach → none` live swaps without reload, positions kept.
-2. `settings.json` → `"vscode-pokemon.theme": "underwater-the-movie"` → save.
+2. `settings.json` → `"knps-pokemon.theme": "underwater-the-movie"` → save.
 - [ ] No crash, falls back to `none`.
 
 ### Test 24 — Panel Positions & Resizing

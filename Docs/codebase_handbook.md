@@ -1,10 +1,10 @@
-# 📖 KNP Pokémon — Codebase Handbook
+# 📖 KNPs Pokémon — Codebase Handbook
 
 **A complete, plain-language guide to every file and piece of code in this repository.**
 
 > This extension adds live Pokémon companions to VS Code. Pokémon appear as animated pixel-art sprites in a webview panel, walk around, interact with each other, and can be released/recalled with Pokéball animations.
 >
-> **Current snapshot (2026-08-27):** `knp-pokemon` v0.1.0 (`publisher: Cyberknp`), 6 background scenes (`none/forest/castle/beach/volcano/snow`), 728 sprites (Gen 1–5), 25 vitest tests, all Background Beauty phases 1–5 shipped, all BUG_FIXES_PLAN blockers fixed. This handbook reflects that state.
+> **Current snapshot (2026-09-01):** `knps-pokemon` v0.1.0 (`publisher: Cyberknp`), 6 background scenes (`none/forest/castle/beach/volcano/snow`), 728 sprites (Gen 1–5), 23 vitest tests, all Background Beauty phases 1–5 shipped, all BUG_FIXES_PLAN blockers fixed, `vscode-pokemon → knps-pokemon` rebrand + migration shim. This handbook reflects that state.
 >
 > **How to read this document:** Section 1 explains the big picture first. Sections 2–6 then go file-by-file. Sections 7–9 are reference tables you can consult anytime. Section 10 lists what changed to get here.
 
@@ -70,11 +70,11 @@ GAME LOOP (one shared setInterval, 100 ms)
 ### 1.3 How movement works
 
 Each Pokémon is a small **state machine**. At any moment it is in exactly one *state*
-(`sitIdle`, `walkLeft`, `climbWallLeft`, `chase`, `standLeft`, …). Every 100 ms the loop calls
+(`sitIdle`, `walkLeft`, `climbWallLeft`, `chaseFriend`, `standLeft`, …). Every 100 ms the loop calls
 `nextFrame()` on the current state object, which either:
 - returns `stateContinue` (keep doing this), or
 - returns `stateComplete` (pick a random next state from the sequence tree), or
-- returns `stateCancel` (abnormal exit, e.g. ball already caught).
+- returns `stateCancel` (abnormal exit, e.g. a friend stopped playing mid-chase).
 
 Changing the state changes which GIF file the sprite `<img>` points at
 (`{name}_{animation}_8fps.gif`), so the visible animation follows the logic automatically.
@@ -101,15 +101,15 @@ body backgroundImage              ← background-${variant}-${size}.png  (sky/ho
 The manifest — everything VS Code needs to know about the extension.
 
 Key parts (current as of 2026-08-27):
-- **`name: knp-pokemon`, `displayName: KNP Pokémon`, `publisher: Cyberknp`, `version: 0.1.0`**, `repository/homepage/bugs → Cyberknp/KNP-pokemon` (rebrand R1 done).
+- **`name: knps-pokemon`, `displayName: KNPs Pokémon`, `publisher: Cyberknp`, `version: 0.1.0`**, `repository/homepage/bugs → Cyberknp/KNP-pokemon` (rebrand R1 done).
 - **`main: "./out/extension/extension.js"`** — Node host entry after `tsc`.
 - **`browser` field removed** (was dead `./dist/web/extension-web.js` — fix S-3).
 - **`activationEvents`** — `onStartupFinished` + all commands + `onWebviewPanel:pokemonCoding`/`onView:pokemonView`.
-- **`contributes.views`** — `pokemonView` webview in Explorer, shown when `vscode-pokemon.position == 'explorer'`.
-- **`contributes.commands`** — `start`, `spawn-pokemon`, `spawn-random-pokemon`, `delete-pokemon`, `remove-all-pokemon`, `roll-call`, `export/import-pokemon-list`, `configure-keybindings`, `change-pokemon-language`, **`select-theme`** (new Phase 2, title-bar landscape icon `media/icon/dark-scene.svg`).
+- **`contributes.views`** — `pokemonView` webview in Explorer, shown when `knps-pokemon.position == 'explorer'`.
+- **`contributes.commands`** — `start`, `spawn-pokemon`, `spawn-random-pokemon`, `delete-pokemon`, `remove-all-pokemon`, `roll-call`, `export/import-pokemon-list`, `configure-keybindings`, **`select-theme`** (new Phase 2, title-bar landscape icon `media/icon/dark-scene.svg`).
 - **`contributes.menus.view/title`** — 4 title-bar buttons for the sidebar view, `select-theme` is `navigation@4`.
 - **`contributes.keybindings`** — `Alt+Shift+W` spawn, `Alt+Shift+Q` spawn-random, `Alt+Shift+D` delete, `Alt+Shift+Backspace` remove-all.
-- **`contributes.configuration`** — 11 settings (see §9.3): `pokemonSize`, `position`, `theme` (now 6 values `none/forest/castle/beach/volcano/snow`), **`dayNightCycle`** (Phase 4), **`randomTheme`** (Phase 5), **`throwBallWithMouse`** (S-1, now visible), `defaultPokemon`, `shinyOdds`, `pokemonLanguage`, `maxPokemon`, `motion`, `debug`.
+- **`contributes.configuration`** — 11 settings (see §9.3): `pokemonSize`, `position`, `theme` (now 6 values `none/forest/castle/beach/volcano/snow`), **`dayNightCycle`** (Phase 4), **`randomTheme`** (Phase 5), **`throwBallWithMouse`** (S-1, now visible), `defaultPokemon`, `shinyOdds`, `maxPokemon`, `motion`, `debug`.
 - **Scripts:**
 
 | Script | What it does |
@@ -118,7 +118,7 @@ Key parts (current as of 2026-08-27):
 | `compile:prod` | same but minified with all `console.*` stripped |
 | `watch` | recompiles on save during development |
 | `lint` / `lint:fix` | ESLint over `src/` (4 pre-existing `any` warnings) |
-| `test` | vitest 25 tests (jsdom) |
+| `test` | vitest 23 tests (jsdom) |
 | `optimize-assets` | recompresses every GIF via gifsicle |
 
 ### `webpack.config.js`
@@ -188,11 +188,10 @@ Every concept both sides need to agree on:
 
 The split into per-generation files exists so future code can lazy-load generations independently without changing any caller.
 
-### `src/common/localize.ts` — translated Pokémon names
+### `src/common/localize.ts` — Pokémon names
 
-Loads optional translation dictionaries from `l10n/pokemon/{locale}/gen{1-5}.json`.
-Flow: read the `vscode-pokemon.pokemonLanguage` setting (or fall back to VS Code's own locale) → find the matching folder → merge all five gen JSON files into a cache keyed by locale → `getLocalizedPokemonName(type)` returns the translation, falling back to the English name in `POKEMON_DATA`.
-Also contains `resetPokemonTranslationsCache()` (called when the user changes language) and QuickPick-item helpers.
+The extension ships **English as its primary language**, so this module simply maps a species key to its display name: `getLocalizedPokemonName(type)` returns the English `name` from `POKEMON_DATA`, falling back to the type key itself.
+UI strings (command titles, prompts, notifications) are localized separately via `vscode.l10n` + the `bundle.l10n.*.json` files in `l10n/`.
 
 ### `src/common/names.ts` — pet names
 
@@ -207,7 +206,7 @@ One function, `randomName()`: picks a random pet-style name ('Bella', 'Zeus', 'P
 Everything that runs on the Node side. Major pieces, top to bottom:
 
 #### 4.1 Settings readers (top of file)
-Small functions that each read one `vscode-pokemon.*` setting and sanitize it:
+Small functions that each read one `knps-pokemon.*` setting and sanitize it:
 `getConfiguredSize()`, **`getConfiguredTheme()`** (now handles `randomTheme` via `globalState` + fallback), `getConfiguredThemeKind()`, `getConfigurationPosition()`, `getThrowWithMouseConfiguration()`, `getConfiguredShinyOdds()`, `getConfiguredDebug()`, `getConfiguredMaxPokemon()`, `getConfiguredMotion()`, **`getConfiguredDayNightCycle()`** (Phase 4).
 Also `maybeMakeShiny(colors)` — rolls the shiny dice (1-in-N odds) when a color isn't forced.
 
@@ -221,7 +220,7 @@ if (randomTheme && extensionState) {
   return picked;
 }
 ```
-`extensionState` is now `context.globalState` (was `workspaceState` — fix F-6 workspace collision). `RANDOM_THEME_CACHE_KEY = 'vscode-pokemon.random-theme-cache'`.
+`extensionState` is now `context.globalState` (was `workspaceState` — fix F-6 workspace collision). `RANDOM_THEME_CACHE_KEY = 'knps-pokemon.random-theme-cache'`.
 
 #### 4.2 `resolveRandomPokemonType(pool?)`
 Resolves the special `'random'` entry in `defaultPokemon` settings to a concrete species, optionally restricted to a user-provided pool; warns about invalid pool entries.
@@ -229,14 +228,14 @@ Resolves the special `'random'` entry in `defaultPokemon` settings to a concrete
 #### 4.3 `PokemonSpecification`
 A plain description of one companion (color, type, size, name, generation string like `"gen2"`, original sprite size). It has three constructors:
 - `fromConfiguration()` — from the legacy single-Pokémon settings.
-- `collectionFromMemento(context)` — restores the saved party from global storage (three parallel arrays: types, colors, names, stored under keys `vscode-pokemon.extra-pokemon.types/colors/names`). These keys are registered for Settings Sync.
+- `collectionFromMemento(context)` — restores the saved party from global storage (three parallel arrays: types, colors, names, stored under keys `knps-pokemon.extra-pokemon.types/colors/names`). These keys are registered for Settings Sync.
 - `storeCollectionAsMemento(...)` — writes the party back.
 
 This is how your team survives VS Code restarts.
 
 #### 4.4 `activate(context)` — the entry point
 Runs once at startup. Registers, in order:
-1. `vscode-pokemon.start` — focuses the sidebar view (explorer mode) or creates the editor panel. Now sets `extensionState = context.globalState`.
+1. `knps-pokemon.start` — focuses the sidebar view (explorer mode) or creates the editor panel. Now sets `extensionState = context.globalState`.
 2. Status-bar 🐿️ button + listeners that keep it visible.
 3. The webview view provider (`registerWebviewViewProvider`).
 4. All other commands:
@@ -244,13 +243,12 @@ Runs once at startup. Registers, in order:
    - **remove-all-pokemon** — resets everything and clears storage (webview does cascaded `reset-pokemon`).
    - **roll-call** — every companion posts a greeting notification.
    - **configure-keybindings** — opens VS Code's keybinding editor pre-filtered to a chosen command.
-   - **change-pokemon-language** — QuickPick of locales; persists choice and resets the translation cache.
    - **export-pokemon-list** — writes the party as pretty-printed JSON into a new untitled document.
    - **import-pokemon-list** — reads such a JSON file, validates colors, spawns everyone, saves roster.
    - **spawn-pokemon** — a two-level dynamic QuickPick: shows generation folders by default; typing filters across *all* Pokémon instantly. After picking: optional custom name → shiny roll → spawn → persist.
    - **spawn-random-pokemon** — instant random spawn.
    - **`select-theme`** (Phase 2, `extension.ts:1126-1157`) — `ALL_THEMES.map(t => { label: t===none ? '$(circle-slash) None' : '$(device-camera) '+l10n.t(t), value:t, description: t===current ? 'Current':undefined })` → `showQuickPick` → `config.update('theme', pick.value, Global)`. Because the config listener already watches `theme`, the panel repaints automatically.
-5. A **configuration-change listener** (now watches `pokemonColor/pokemonType/pokemonSize/theme/randomTheme/dayNightCycle/workbench.colorTheme` → `panel.updatePokemonColor/Size/Type + panel.updateTheme + panel.update()`; plus `position` → context, `throwBallWithMouse` → `updatePanelThrowWithMouse()`, `pokemonLanguage` → cache reset).
+5. A **configuration-change listener** (now watches `pokemonColor/pokemonType/pokemonSize/theme/randomTheme/dayNightCycle/workbench.colorTheme` → `panel.updatePokemonColor/Size/Type + panel.updateTheme + panel.update()`; plus `position` → context, `throwBallWithMouse` → `updatePanelThrowWithMouse()`).
 6. A **webview panel serializer** so even editor-mode panels survive window reloads.
 
 #### 4.5 `IPokemonPanel` interface + `PokemonWebviewContainer` base class
@@ -286,7 +284,7 @@ The bootstrap file. Everything below is in this one file:
 - **`midgroundEl`** (`#midground` div, Phase 3) and **`dayNightTimer`** (`setInterval`, Phase 4).
 
 **Debug logging**
-`log(...)` prints to the console only when `vscode-pokemon.debug` is true (and production builds strip console output entirely).
+`log(...)` prints to the console only when `knps-pokemon.debug` is true (and production builds strip console output entirely).
 
 **The single animation loop** (performance-critical)
 - `ensureAnimationLoop(stateApi)` starts **one** `setInterval` at 100 ms for the whole app:
@@ -330,17 +328,16 @@ Finds the Pokémon, removes it from the collection immediately (so rapid deletes
 
 **`pokemonPanelApp(...)` — the entry point called by the inline HTML script**
 Signature `(basePokemonUri, theme, themeKind, pokemonColor, pokemonSize, pokemonType, throwBallWithMouse, gen, originalSpriteSize, options {debug,maxPokemon,motion,dayNightCycle})`.
-Steps: set `debugEnabled`/`maxPokemon`/`motionReduced` classes, resolve `dayNightCycle`, **apply scene layers** (`applySceneLayers` → `floor` + `variant`) + **start day/night timer**, log session, recover or init state, `initCanvas()`, wire reduced-motion listener, define the **message switch** handling every command the host can send: `spawn-pokemon` (+ party cap `Party is full` toast), `spawn-random-pokemon` (cap-checked), `list-pokemon`, `roll-call`, `delete-pokemon`, `reset-pokemon` (**cascaded stagger 150ms**, respects `motionReduced`, `cascadeDelay+500` final reset — R4), `pause-pokemon`/`resume-pokemon` (fixed to save+pause vs resume). Finally **starts the single loop** (`ensureAnimationLoop`). Also `resize` listener re-clamps sprites.
+Steps: set `debugEnabled`/`maxPokemon`/`motionReduced` classes, resolve `dayNightCycle`, **apply scene layers** (`applySceneLayers` → `floor` + `variant`) + **start day/night timer**, log session, recover or init state, `initCanvas()`, wire reduced-motion listener, define the **message switch** handling every command the host can send: `spawn-pokemon` (+ party cap `Party is full` toast), `spawn-random-pokemon` (cap-checked), `list-pokemon`, `roll-call`, `delete-pokemon`, `reset-pokemon` (**cascaded stagger 150ms**, respects `motionReduced`, `cascadeDelay+500` final reset — R4), `pause-pokemon`/`resume-pokemon` (fixed to save+pause vs resume), `throw-with-mouse` (live hover-recall toggle). Finally **starts the single loop** (`ensureAnimationLoop`). Also `resize` listener re-clamps sprites.
 
 ### 5.2 `src/panel/states.ts` — the behavior state machine
 
 Pure logic, no rendering — which makes it fully unit-testable.
 
 **Core types**
-- `States` enum — every possible activity (`sitIdle`, `walkLeft/Right`, `runLeft/Right`, `lie`, `wallHang*`, `climbWall*`, `jumpDown*`, `land`, `swipe`, `idleWithBall`, `chase`, `chaseFriend`, **`standRight`/`standLeft`** — both now correct labels; fix B-2).
+- `States` enum — every possible activity (`sitIdle`, `walkLeft/Right`, `runLeft/Right`, `lie`, `wallHang*`, `climbWall*`, `jumpDown*`, `land`, `swipe`, **`chaseFriend`**, **`standRight`/`standLeft`** — both now correct labels; fix B-2).
 - `FrameResult` — `stateContinue` | `stateComplete` | `stateCancel`.
 - `IPokemonType` — the interface a Pokémon must implement for states to drive it (position setters, speed, friend hooks…).
-- `BallState` — physics for the thrown ball (position + velocity + caught flag).
 - `isStateAboveGround()` — true for wall-climbing/jumping states (used to skip ground snapping).
 - `resolveState(label, pokemon)` — factory turning a label back into a live state object (defaults to sitting when unknown).
 - `rightWalkBoundary()` — per-frame `window.innerWidth*0.95` so resize is respected instantly.
@@ -348,11 +345,10 @@ Pure logic, no rendering — which makes it fully unit-testable.
 **State classes**
 | Class | Behavior |
 |---|---|
-| `AbstractStaticState` | Base for "stand still" states: counts ticks until `holdTime`, then completes. Subclasses: `SitIdleState` (50 ticks), `LieState` (50), `WallHangLeftState` (50), `LandState` (10), `SwipeState` (15), `IdleWithBallState` (30), `StandRightState` (60, `label=standRight`), `StandLeftState` (60, `label=standLeft`). |
+| `AbstractStaticState` | Base for "stand still" states: counts ticks until `holdTime`, then completes. Subclasses: `SitIdleState` (50 ticks), `LieState` (50), `WallHangLeftState` (50), `LandState` (10), `SwipeState` (15), `StandRightState` (60, `label=standRight`), `StandLeftState` (60, `label=standLeft`). |
 | `WalkRightState` | Moves right by `speed` each tick; finishes at the right edge (95% of width) or randomly stops (1% chance/tick). |
 | `WalkLeftState` | Mirror image toward the left edge. |
 | `RunRightState` / `RunLeftState` | Same but 1.6× faster, longer hold times (130). |
-| `ChaseState` | Runs toward the thrown ball; hides the ball and completes when caught. Cancels if ball already caught. |
 | `ChaseFriendState` | Runs toward a friend while they're playing; cancels if friendship ends. |
 | `ClimbWallLeftState` | Rises 1px/tick until bottom ≥ 100. |
 | `JumpDownLeftState` | Falls 5px/tick, clamps at the floor. |
@@ -370,10 +366,10 @@ The abstract Pokémon class that owns the sprite element and drives the machine:
   1. updates facing + animation,
   2. if this Pokémon has a playing friend, switches into `chaseFriend`,
   3. ticks the current state;
-     - on `complete`: restore the held (pre-swipe) state if any, otherwise pick a random next state from the sequence tree;
-     - on `cancel`: fall back to `idleWithBall` transitions.
+- on `complete`: restore the held (pre-swipe) state if any, otherwise pick a random next state from the sequence tree;
+   - on `cancel` (`chaseFriend` ended mid-follow): settle back to `sitIdle`.
 - **Social API:** `makeFriendsWith()`, `recoverFriend()`, `hasFriend`, `friend`, `isPlaying` (true while running), `showSpeechBubble()` (heart for friends, happy face otherwise).
-- **Interaction:** `swipe()` stores the current state, plays the swipe pose, then resumes afterward (via the held-state mechanism above). `chase(ball, canvas)` enters chase mode.
+- **Interaction:** `swipe()` stores the current state, plays the swipe pose, then resumes afterward (via the held-state mechanism above). Friends chase is driven automatically from `nextFrame()`, so no separate ball-throw chase code exists.
 
 ### 5.4 `src/panel/pokemon.ts` — `Pokemon` + pet names
 
@@ -399,14 +395,14 @@ Tiny file defining `ISequenceNode` / `ISequenceTree` — the shape of the transi
 
 ## 6. `tests/` & `scripts/`
 
-### `tests/states.test.ts` — 17 unit tests (vitest + jsdom)
+### `tests/states.test.ts` — 15 unit tests (vitest + jsdom)
 
 Uses a mock Pokémon object that records positioning calls, then verifies:
-- every static state transitions continue→complete exactly at its `holdTime` (including the fixed 60 for `standRight/standLeft`);
+- every static state (`SitIdle`/`Lie`/`WallHangLeft`/`Land`/`Swipe`) transitions continue→complete exactly at its `holdTime`;
 - walking moves the sprite and terminates at boundaries (with `Math.random` pinned so the 1% early-stop can't flake);
 - running is genuinely faster than walking;
 - climbing terminates at height 100; jumping clamps to the floor;
-- ball-chase catches/hides correctly and cancels when already caught;
+- `ChaseFriendState` cancels when there is no playing friend;
 - `resolveState` maps every label and falls back safely on garbage input.
 
 ### `tests/backgrounds.test.ts` — 8 unit tests
@@ -416,7 +412,7 @@ Covers the Background Beauty additions:
 - `resolveSceneVariant` follows `themeKind` when `dayNightCycle` off, and picks `dark` 19–5 / `light` 6–18 when on (overrides theme);
 - `ALL_THEMES` contains `volcano`/`snow`; `THEMES_WITH_MIDGROUND` excludes `none` and is subset of `ALL_THEMES`.
 
-Run with `npm test` → **25 passed**.
+Run with `npm test` → **23 passed**.
 
 ### `scripts/optimize-assets.mjs`
 
@@ -455,7 +451,7 @@ media/
 | `body` | Fills with the editor background color, bottom-aligned repeating background image (theme layer), hides overflow/scrollbars |
 | `#foreground` | Overlay layer drawn *above* sprites so they appear to walk behind scenery |
 | `#midground` | Parallax drift layer (Phase 3) — `repeat-x bottom left`, `animation: drift 90s linear infinite`, paused via `.pokemon-paused` |
-| `#pokemonCanvas` | Fixed invisible canvas used for ball-throw physics coordinates |
+| `#pokemonCanvas` | Invisible fixed canvas, sized on load/resize — kept for back-compat, no throw-physics code remains |
 | `img.pokemon` | Absolute-positioned sprite, `image-rendering: pixelated` (crisp pixels), default flipped left |
 | `.collision` | Invisible hover zone, z-index 999 so it always receives mouse events; contains `.pokeball-hover` button (R2) |
 | `.pokeball-hover` | Small button visible on `:hover`, click → recall |
@@ -484,7 +480,7 @@ example: …/media/gen1/pikachu/shiny/pikachu_walk_8fps.gif
 |---|---|
 | `bundle.l10n.en-US.json`, `bundle.l10n.en-GB.json` | UI-string translations consumed by `vscode.l10n.t()` (command titles, prompts, notifications) — now includes **`"None": "None"`** (fix F-2) for the theme picker |
 | `l10n/tsconfig.json` | Config for the localization tooling |
-| `pokemon/{locale}/gen1–5.json` *(optional)* | Per-species name translations loaded by `localize.ts` (English falls back to the registry names) |
+| `pokemon/{locale}/gen1–5.json` *(optional)* | Reserved for future per-species name translations — `localize.ts` ships English only and does not load these today |
 
 ---
 
@@ -501,9 +497,8 @@ example: …/media/gen1/pikachu/shiny/pikachu_walk_8fps.gif
 | `list-pokemon` | — | Replies with `type,name,color` lines |
 | `roll-call` | — | Notification per Pokémon |
 | `pause-pokemon` / `resume-pokemon` | — | Stop/start the animation loop (visibility) |
-| `throw-with-mouse` | enabled | Toggles click-to-recall |
-| `set-size` | size | Updates sizing for new spawns |
-| `updateTheme` (via `_getHtmlForWebview` rebuild or `applySceneLayers`) | theme, themeKind, dayNightCycle | Repaints background layers |
+| `throw-with-mouse` | enabled | Live-toggles the hover Pokéball recall button |
+| theme change (no message) | theme, themeKind, dayNightCycle | Host rebuilds HTML via `_getHtmlForWebview`; webview re-runs `applySceneLayers` |
 
 ### 9.2 Webview → Host messages
 
@@ -512,8 +507,9 @@ example: …/media/gen1/pikachu/shiny/pikachu_walk_8fps.gif
 | `info` | Show an information toast |
 | `alert` / `error` | Show an error toast |
 | `list-pokemon` | Reply payload for delete flow |
+| `pokemon-released` | A Pokémon was recalled in the webview; host drops it from the persisted roster |
 
-### 9.3 Settings (`vscode-pokemon.*`)
+### 9.3 Settings (`knps-pokemon.*`)
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -525,7 +521,6 @@ example: …/media/gen1/pikachu/shiny/pikachu_walk_8fps.gif
 | `throwBallWithMouse` | `true` | Click Pokémon to recall (fix S-1 now in Settings UI) |
 | `defaultPokemon` | `[]` | Party auto-spawned on startup (supports `"type": "random"` + pools) |
 | `shinyOdds` | `8192` | 1-in-N shiny chance |
-| `pokemonLanguage` | `auto` | Name translation locale |
 | `maxPokemon` | `6` (1–15) | Party cap |
 | `motion` | `system` | Animation: follow OS / always / reduced |
 | `debug` | `false` | Verbose webview logging |
@@ -536,17 +531,16 @@ All declared in `package.json` → `contributes.configuration.properties` so the
 
 | Command | Keybinding | Action |
 |---|---|---|
-| `vscode-pokemon.start` | — | Open/focus the playground |
-| `vscode-pokemon.spawn-pokemon` | `Alt+Shift+W` | Pick & release a Pokémon |
-| `vscode-pokemon.spawn-random-pokemon` | `Alt+Shift+Q` | Instant random spawn |
-| `vscode-pokemon.delete-pokemon` | `Alt+Shift+D` | Recall one |
-| `vscode-pokemon.remove-all-pokemon` | `Alt+Shift+Backspace` | Recall everyone (cascade) |
-| `vscode-pokemon.roll-call` | — | Everyone greets you |
-| `vscode-pokemon.select-theme` | title bar (explorer) | Pick scene via QuickPick (Phase 2) |
-| `vscode-pokemon.export-pokemon-list` | — | Backup party JSON to untitled doc |
-| `vscode-pokemon.import-pokemon-list` | — | Restore from JSON (warns on bad pool) |
-| `vscode-pokemon.configure-keybindings` | — | Open keybindings filtered to command |
-| `vscode-pokemon.change-pokemon-language` | — | Switch name locale |
+| `knps-pokemon.start` | — | Open/focus the playground |
+| `knps-pokemon.spawn-pokemon` | `Alt+Shift+W` | Pick & release a Pokémon |
+| `knps-pokemon.spawn-random-pokemon` | `Alt+Shift+Q` | Instant random spawn |
+| `knps-pokemon.delete-pokemon` | `Alt+Shift+D` | Recall one |
+| `knps-pokemon.remove-all-pokemon` | `Alt+Shift+Backspace` | Recall everyone (cascade) |
+| `knps-pokemon.roll-call` | — | Everyone greets you |
+| `knps-pokemon.select-theme` | title bar (explorer) | Pick scene via QuickPick (Phase 2) |
+| `knps-pokemon.export-pokemon-list` | — | Backup party JSON to untitled doc |
+| `knps-pokemon.import-pokemon-list` | — | Restore from JSON (warns on bad pool) |
+| `knps-pokemon.configure-keybindings` | — | Open keybindings filtered to command |
 
 ---
 
@@ -558,7 +552,7 @@ All declared in `package.json` → `contributes.configuration.properties` so the
 |---|---|---|---|
 | **B-1** | `.gitignore:13`, `dev_session.md` untracked | Added `dev_session.md` to ignore, `git rm --cached` | Prevent 5,479-line log shipping to `main` |
 | **B-2** | `src/panel/states.ts:431-443` | Fixed `StandRightState.label = standRight` (was `standLeft`) + `StandLeftState.label = standLeft` (was `standRight`) | State persistence broken for standing Pokémon |
-| **S-1** | `package.json:232-236` | Declared `vscode-pokemon.throwBallWithMouse` boolean default true | Setting worked but invisible in Settings UI |
+| **S-1** | `package.json:232-236` | Declared `knps-pokemon.throwBallWithMouse` boolean default true | Setting worked but invisible in Settings UI |
 | **S-2** | `src/panel/main.ts:158-167` | `stopAnimationLoop()` now clears `dayNightTimer` + `unload` listener | Timer leak on webview destroy |
 | **S-3** | `package.json` | Removed `"browser": "./dist/web/extension-web.js"` | Dead web build target |
 | **F-2** | `l10n/bundle.l10n.en-US/Gb.json:35` | Added `"None": "None"` | Missing translation for theme picker |
@@ -569,7 +563,7 @@ All declared in `package.json` → `contributes.configuration.properties` so the
 | **R2/R4** | `src/panel/main.ts:352-404,850-874` | Hover Pokéball button + cascade stagger 150ms + unique-name `-2` suffix + `normalizePokemonCounter` | Proper recall UX and identity safety |
 | **Docs** | `Docs/Features.md`, `Docs/TESTING_VIGNETTE.md` | Unified implementation doc + complete testing vignette (25+ checks) | Single source of truth |
 
-**Quality gates after fixes:** `npm run lint` → 0 errors (4 `any` warnings), `npm run compile` → webpack 5.95.0 success, `npm test` → 25 passed.
+**Quality gates after fixes:** `npm run lint` → 0 errors (4 `any` warnings), `npm run compile` → webpack 5.95.0 success, `npm test` → 23 passed.
 
 ---
 
