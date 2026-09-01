@@ -68,10 +68,12 @@ use "Remove All Pokemon" to watch the cascade clear the panel.
 |---|---|---|
 | `vscode-pokemon.pokemonSize` | `medium` | Sprite scale (nano/small/medium/large) |
 | `vscode-pokemon.position` | `explorer` | Sidebar view or editor tab |
-| `vscode-pokemon.theme` | `none` | Background scene (none/forest/castle/beach) |
-| `vscode-pokemon.defaultPokemon` | `[]` | Party auto-spawned at startup |
+| `vscode-pokemon.theme` | `none` | Background scene (none/forest/castle/beach/volcano/snow) |
+| `vscode-pokemon.dayNightCycle` | `false` | Switch scenes to dark/light variants by time of day |
+| `vscode-pokemon.randomTheme` | `false` | Pick a random scene once per session |
+| `vscode-pokemon.throwBallWithMouse` | `true` | Throw a Pokéball to recall a Pokémon on click |
+| `vscode-pokemon.defaultPokemon` | `[]` | Party auto-spawned at startup — each entry: `type` ('random' allowed), optional `name`, `shiny`, and `pool` (for random) |
 | `vscode-pokemon.shinyOdds` | `8192` | 1-in-N shiny chance |
-| `vscode-pokemon.pokemonLanguage` | `auto` | Language for Pokémon names |
 | `vscode-pokemon.maxPokemon` | `6` | Maximum simultaneous Pokémon |
 | `vscode-pokemon.motion` | `system` | Animation preference (system/always/reduced) |
 | `vscode-pokemon.debug` | `false` | Verbose webview logging |

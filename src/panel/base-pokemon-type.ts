@@ -12,8 +12,6 @@ import {
   resolveState,
   PokemonInstanceState,
   isStateAboveGround,
-  BallState,
-  ChaseState,
   HorizontalDirection,
   FrameResult,
   IPokemonType,
@@ -277,11 +275,6 @@ export abstract class BasePokemonType implements IPokemonType {
     this.showSpeechBubble();
   }
 
-  chase(ballState: BallState, canvas: HTMLCanvasElement) {
-    this.currentStateEnum = States.chase;
-    this.currentState = new ChaseState(this, ballState, canvas);
-  }
-
   faceLeft() {
     this.el.style.transform = 'scaleX(-1)';
   }
@@ -365,14 +358,11 @@ export abstract class BasePokemonType implements IPokemonType {
       this.currentState = resolveState(nextState, this);
       this.currentStateEnum = nextState;
     } else if (frameResult === FrameResult.stateCancel) {
-      if (this.currentStateEnum === States.chase) {
-        const nextState = this.chooseNextState(States.idleWithBall);
-        this.currentState = resolveState(nextState, this);
-        this.currentStateEnum = nextState;
-      } else if (this.currentStateEnum === States.chaseFriend) {
-        const nextState = this.chooseNextState(States.idleWithBall);
-        this.currentState = resolveState(nextState, this);
-        this.currentStateEnum = nextState;
+      // Friend stopped playing - settle back to the starting idle state.
+      // (SitIdle is in every sequence, so this avoids InvalidStateError.)
+      if (this.currentStateEnum === States.chaseFriend) {
+        this.currentState = resolveState(States.sitIdle, this);
+        this.currentStateEnum = States.sitIdle;
       }
     }
   }

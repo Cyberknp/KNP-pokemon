@@ -256,7 +256,8 @@ function getConfiguredDefaultPokemon(): PokemonSpecification[] {
     result.push(new PokemonSpecification(color, resolvedType, size, name));
   }
 
-  return result;
+  // Enforce maxPokemon so persisted/default spawns never exceed the party cap.
+  return result.slice(0, getConfiguredMaxPokemon());
 }
 
 function getSessionPokemonCollection(
@@ -300,11 +301,14 @@ async function spawnAndPersistCollection(
   panel: IPokemonPanel,
   collection: PokemonSpecification[],
 ): Promise<void> {
-  collection.forEach((item) => {
+  // Caps at maxPokemon so the webview never has to drop over-cap spawns on
+  // its own while the extension still persists the full (surplus) list.
+  const cappedCollection = collection.slice(0, getConfiguredMaxPokemon());
+  cappedCollection.forEach((item) => {
     panel.spawnPokemon(item);
   });
 
-  await storeCollectionAsMemento(context, collection);
+  await storeCollectionAsMemento(context, cappedCollection);
 }
 
 function updatePanelThrowWithMouse(): void {
@@ -1143,6 +1147,14 @@ export function spawnPokemonDeactivate() {
   spawnPokemonStatusBar.dispose();
 }
 
+/**
+ * Standard VS Code lifecycle hook. Disposes resources owned by the extension
+ * (e.g. the status bar item) when the extension is deactivated.
+ */
+export function deactivate() {
+  spawnPokemonDeactivate();
+}
+
 function getWebviewOptions(
   extensionUri: vscode.Uri,
 ): vscode.WebviewOptions & vscode.WebviewPanelOptions {
@@ -1155,7 +1167,6 @@ function getWebviewOptions(
 }
 
 interface IPokemonPanel {
-  // throwBall(): void;
   resetPokemon(): void;
   spawnPokemon(spec: PokemonSpecification): void;
   deletePokemon(pokemonName: string): void;
@@ -1263,12 +1274,6 @@ class PokemonWebviewContainer implements IPokemonPanel {
     void this.getWebview().postMessage({
       command: 'throw-with-mouse',
       enabled: newThrowWithMouse,
-    });
-  }
-
-  public throwBall() {
-    void this.getWebview().postMessage({
-      command: 'throw-ball',
     });
   }
 

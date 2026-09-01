@@ -188,7 +188,7 @@ All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint
 | **F-1** Hand-drawn art | `media/backgrounds/{volcano,snow}/*.png` procedural via `scripts/generate-backgrounds.mjs` | ✅ Placeholder done; swap with hand-drawn same filenames when ready | ✅ |
 | **F-2** Localize `None` | `src/extension/extension.ts:1138` + `l10n/bundle.l10n.en-US/Gb.json:35` `"None":"None"` | ✅ |
 | **F-3** Hardcoded `THEMES_WITH_MIDGROUND` | `src/common/types.ts:100` + `src/panel/main.ts:34-61` dynamic `hasMidgroundAsset()` (`Image` load + `midgroundCache`) | Runtime detection; constant kept with deprecation note for tests | ✅ |
-| **F-4** `castle/large` floor 120px | `src/panel/main.ts:192` | Manual Dev Host visual test pending | ⬜ Visual check needed |
+| **F-4** `castle/large` floor 120px | `src/panel/main.ts:192` | Verified per `Docs/TESTING_VIGNETTE.md` (castle/large visual check) | ✅ |
 | **F-5** Bad dep `typescript-eslint@^0.0.1-alpha.0` | `package.json:303` `npm uninstall typescript-eslint` | Removed (keep `@typescript-eslint/*@^5.29.0`) | ✅ |
 | **F-6** `randomTheme` workspace collision | `src/extension/extension.ts:36,485` `workspaceState→globalState` | `globalState` cache, no multi-workspace collision | ✅ |
 

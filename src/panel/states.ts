@@ -7,7 +7,6 @@ export interface IPokemonType {
   canSwipe: boolean;
   canChase: boolean;
   swipe(): void;
-  chase(ballState: BallState, canvas: HTMLCanvasElement): void;
   speed: number;
   isMoving: boolean;
   hello: string;
@@ -75,8 +74,6 @@ export const enum States {
   jumpDownLeft = 'jump-down-left',
   land = 'land',
   swipe = 'swipe',
-  idleWithBall = 'idle-with-ball',
-  chase = 'chase',
   chaseFriend = 'chase-friend',
   standRight = 'stand-right',
   standLeft = 'stand-left',
@@ -87,22 +84,6 @@ export enum FrameResult {
   stateComplete,
   // Special states
   stateCancel,
-}
-
-export class BallState {
-  cx: number;
-  cy: number;
-  vx: number;
-  vy: number;
-  paused: boolean;
-
-  constructor(cx: number, cy: number, vx: number, vy: number) {
-    this.cx = cx;
-    this.cy = cy;
-    this.vx = vx;
-    this.vy = vy;
-    this.paused = false;
-  }
 }
 
 export function isStateAboveGround(state: States): boolean {
@@ -138,8 +119,6 @@ export function resolveState(state: string, pokemon: IPokemonType): IState {
       return new LandState(pokemon);
     case States.swipe:
       return new SwipeState(pokemon);
-    case States.idleWithBall:
-      return new IdleWithBallState(pokemon);
     case States.chaseFriend:
       return new ChaseFriendState(pokemon);
     case States.standRight:
@@ -214,13 +193,6 @@ export class SwipeState extends AbstractStaticState {
   spriteLabel = 'idle'; // use base idle sprite
   horizontalDirection = HorizontalDirection.natural;
   holdTime = 15;
-}
-
-export class IdleWithBallState extends AbstractStaticState {
-  label = States.idleWithBall;
-  spriteLabel = 'with_ball';
-  horizontalDirection = HorizontalDirection.left;
-  holdTime = 30;
 }
 
 /**
@@ -315,51 +287,6 @@ export class RunLeftState extends WalkLeftState {
   spriteLabel = 'walk_fast';
   speedMultiplier = 1.6;
   holdTime = 130;
-}
-
-export class ChaseState implements IState {
-  label = States.chase;
-  spriteLabel = 'run';
-  horizontalDirection = HorizontalDirection.left;
-  ballState: BallState;
-  canvas: HTMLCanvasElement;
-  pokemon: IPokemonType;
-
-  constructor(
-    pokemon: IPokemonType,
-    ballState: BallState,
-    canvas: HTMLCanvasElement,
-  ) {
-    this.pokemon = pokemon;
-    this.ballState = ballState;
-    this.canvas = canvas;
-  }
-
-  nextFrame(): FrameResult {
-    if (this.ballState.paused) {
-      return FrameResult.stateCancel; // Ball is already caught
-    }
-    if (this.pokemon.left > this.ballState.cx) {
-      this.horizontalDirection = HorizontalDirection.left;
-      this.pokemon.positionLeft(this.pokemon.left - this.pokemon.speed);
-    } else {
-      this.horizontalDirection = HorizontalDirection.right;
-      this.pokemon.positionLeft(this.pokemon.left + this.pokemon.speed);
-    }
-
-    if (
-      this.canvas.height - this.ballState.cy <
-        this.pokemon.width + this.pokemon.floor &&
-      this.ballState.cx < this.pokemon.left &&
-      this.pokemon.left < this.ballState.cx + 15
-    ) {
-      // hide ball
-      this.canvas.style.display = 'none';
-      this.ballState.paused = true;
-      return FrameResult.stateComplete;
-    }
-    return FrameResult.stateContinue;
-  }
 }
 
 export class ChaseFriendState implements IState {
