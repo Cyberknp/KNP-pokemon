@@ -1000,37 +1000,9 @@ export function activate(context: vscode.ExtensionContext) {
                 );
                 if (picked) {
                   selectedPokemonType = picked;
-
-                  // Handle the rest of the flow
-                  const possibleColors = availableColors(
-                    selectedPokemonType.value,
-                  );
-
-                  const name = await vscode.window.showInputBox({
-                    placeHolder: vscode.l10n.t('Leave blank for a random name'),
-                    prompt: vscode.l10n.t('Name your Pokemon'),
-                    value: randomName(),
-                  });
-
-                  if (name === undefined) {
-                    console.log('Cancelled Spawning Pokemon - No Name Entered');
-                    return;
-                  }
-
-                  const spec = new PokemonSpecification(
-                    maybeMakeShiny(possibleColors),
-                    selectedPokemonType.value,
-                    getConfiguredSize(),
-                    name,
-                  );
-
-                  panel.spawnPokemon(spec);
-                  const collection = PokemonSpecification.collectionFromMemento(
-                    context,
-                    getConfiguredSize(),
-                  );
-                  collection.push(spec);
-                  await storeCollectionAsMemento(context, collection);
+                  // The post-loop block below handles the name prompt, spawn
+                  // and persistence for the Generation path too, so it isn't
+                  // duplicated here.
                 }
               } else {
                 selectedPokemonType = sel as any;
@@ -1051,11 +1023,6 @@ export function activate(context: vscode.ExtensionContext) {
 
           qp.show();
           await closed;
-
-          if (!selectedPokemonType) {
-            console.log('Cancelled Spawning Pokemon - No Selection');
-            return;
-          }
 
           if (!selectedPokemonType) {
             console.log('Cancelled Spawning Pokemon - No Pokemon Selected');
