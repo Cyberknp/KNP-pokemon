@@ -480,8 +480,6 @@ function getWebview(): vscode.Webview | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  // Reset the Pokemon translations cache at startup to load the correct language
-  localize.resetPokemonTranslationsCache();
   extensionState = context.globalState;
 
   context.subscriptions.push(
@@ -699,84 +697,6 @@ export function activate(context: vscode.ExtensionContext) {
         await vscode.commands.executeCommand(
           'workbench.action.openGlobalKeybindings',
           picked.commandId,
-        );
-      },
-    ),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'vscode-pokemon.change-pokemon-language',
-      async () => {
-        const config = vscode.workspace.getConfiguration('vscode-pokemon');
-        const currentLanguage = config.get<string>('pokemonLanguage', 'auto');
-
-        // Language display names and flags (official Pokemon languages only)
-        /* eslint-disable @typescript-eslint/naming-convention */
-        const languageLabels: {
-          [key: string]: { label: string; description: string };
-        } = {
-          auto: {
-            label: '$(globe) Auto',
-            description: vscode.l10n.t('Use VS Code language'),
-          },
-          'en-US': {
-            label: '🇺🇸 English (US)',
-            description: vscode.l10n.t('English names'),
-          },
-        } as { [key: string]: { label: string; description: string } };
-        /* eslint-enable @typescript-eslint/naming-convention */
-
-        const languageOptions: Array<vscode.QuickPickItem & { value: string }> =
-          [
-            {
-              label: languageLabels['auto'].label,
-              description: languageLabels['auto'].description,
-              detail:
-                currentLanguage === 'auto'
-                  ? vscode.l10n.t('Current')
-                  : undefined,
-              value: 'auto',
-            },
-            ...localize.SUPPORTED_LOCALES.map((locale) => ({
-              label: languageLabels[locale]?.label || locale,
-              description: languageLabels[locale]?.description || locale,
-              detail:
-                currentLanguage === locale
-                  ? vscode.l10n.t('Current')
-                  : undefined,
-              value: locale,
-            })),
-          ];
-
-        const picked = await vscode.window.showQuickPick(languageOptions, {
-          placeHolder: vscode.l10n.t('Select language for Pokemon names'),
-        });
-
-        if (!picked) {
-          return;
-        }
-
-        // Update configuration persistently
-        await config.update(
-          'pokemonLanguage',
-          picked.value,
-          vscode.ConfigurationTarget.Global,
-        );
-
-        // Reset translation cache to force reload
-        localize.resetPokemonTranslationsCache();
-
-        // Preload translations with the new language
-        // This ensures the cache is immediately available
-        const testPokemon: PokemonType = 'bulbasaur';
-        localize.getLocalizedPokemonName(testPokemon);
-
-        await vscode.window.showInformationMessage(
-          vscode.l10n.t(
-            'Pokemon language changed to {0}. The change will persist after restart.',
-            picked.label,
-          ),
         );
       },
     ),
@@ -1172,16 +1092,6 @@ export function activate(context: vscode.ExtensionContext) {
 
         if (e.affectsConfiguration('vscode-pokemon.throwBallWithMouse')) {
           updatePanelThrowWithMouse();
-        }
-
-        if (e.affectsConfiguration('vscode-pokemon.pokemonLanguage')) {
-          // Reset the Pokemon translations cache when the language changes
-          localize.resetPokemonTranslationsCache();
-          // Update the panel to reflect the new language
-          const panel = getPokemonPanel();
-          if (panel) {
-            panel.update();
-          }
         }
       },
     ),
