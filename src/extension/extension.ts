@@ -569,6 +569,12 @@ export function activate(context: vscode.ExtensionContext) {
           await createPokemonPlayground(context);
           return;
         }
+        if (
+          getConfigurationPosition() === ExtPosition.explorer &&
+          webviewViewProvider
+        ) {
+          await vscode.commands.executeCommand('pokemonView.focus');
+        }
         const webview = getWebview();
         if (!webview) {
           return;
@@ -617,6 +623,12 @@ export function activate(context: vscode.ExtensionContext) {
       async () => {
         const panel = getPokemonPanel();
         if (panel !== undefined) {
+          if (
+            getConfigurationPosition() === ExtPosition.explorer &&
+            webviewViewProvider
+          ) {
+            await vscode.commands.executeCommand('pokemonView.focus');
+          }
           panel.resetPokemon();
           await storeCollectionAsMemento(context, []);
         } else {
@@ -635,6 +647,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('vscode-pokemon.roll-call', async () => {
       const panel = getPokemonPanel();
       if (panel !== undefined) {
+        if (
+          getConfigurationPosition() === ExtPosition.explorer &&
+          webviewViewProvider
+        ) {
+          await vscode.commands.executeCommand('pokemonView.focus');
+        }
         panel.rollCall();
       } else {
         await createPokemonPlayground(context);
