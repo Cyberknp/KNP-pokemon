@@ -82,7 +82,7 @@ let debugEnabled = false;
 
 function log(...args: unknown[]): void {
   if (debugEnabled) {
-    console.log('[vscode-pokemon]', ...args);
+    console.log('[knps-pokemon]', ...args);
   }
 }
 
@@ -97,6 +97,7 @@ let loopTimer: ReturnType<typeof setInterval> | null = null;
 let tickCount = 0;
 let lastPositionSave = 0;
 let motionReduced = false;
+let hoverRecallEnabled = true;
 let activeStateApi: VscodeStateApi | undefined;
 
 function prefersReducedMotion(setting: PokemonPanelOptions['motion']): boolean {
@@ -392,23 +393,26 @@ function addPokemonToPanel(
 
     // Hover Pokéball click-to-recall (Phase R2). The button lives *inside*
     // the collision box so it follows the Pokémon automatically and inherits
-    // its :hover state without any per-tick position updates.
-    const recallButton = document.createElement('div');
-    recallButton.className = 'pokeball-hover';
-    recallButton.title = `Recall ${name}`;
-    recallButton.addEventListener('click', (e) => {
-      // Don't let the click bubble into other panel interactions.
-      e.stopPropagation();
-      removePokemonFromPanel({ name: newPokemon.name }, stateApi);
-      // Notify the extension host so the persisted collection (globalState
-      // memento) no longer includes the recalled pokemon. Without this the
-      // pokemon respawns on the next session.
-      stateApi?.postMessage({
-        command: 'pokemon-released',
-        text: newPokemon.name,
+    // its :hover state without any per-tick position updates. Only shown when
+    // the `throwBallWithMouse` setting is enabled.
+    if (hoverRecallEnabled) {
+      const recallButton = document.createElement('div');
+      recallButton.className = 'pokeball-hover';
+      recallButton.title = `Recall ${name}`;
+      recallButton.addEventListener('click', (e) => {
+        // Don't let the click bubble into other panel interactions.
+        e.stopPropagation();
+        removePokemonFromPanel({ name: newPokemon.name }, stateApi);
+        // Notify the extension host so the persisted collection (globalState
+        // memento) no longer includes the recalled pokemon. Without this the
+        // pokemon respawns on the next session.
+        stateApi?.postMessage({
+          command: 'pokemon-released',
+          text: newPokemon.name,
+        });
       });
-    });
-    collisionElement.appendChild(recallButton);
+      collisionElement.appendChild(recallButton);
+    }
   } catch (e: unknown) {
     // Remove elements
     pokemonSpriteElement.remove();
@@ -693,6 +697,7 @@ export async function pokemonPanelApp(
       ? Math.floor(options.maxPokemon)
       : 6;
   motionReduced = prefersReducedMotion(options.motion);
+  hoverRecallEnabled = throwBallWithMouse;
   document.body.classList.toggle('pokemon-reduced-motion', motionReduced);
   document.body.classList.toggle(
     'pokemon-force-motion',
@@ -892,6 +897,17 @@ export async function pokemonPanelApp(
       case 'resume-pokemon':
         ensureAnimationLoop(stateApi);
         break;
+
+      case 'throw-with-mouse': {
+        // Live toggle of hover-click recall (config change while panel open).
+        hoverRecallEnabled = message.enabled !== false;
+        document
+          .querySelectorAll<HTMLDivElement>('.pokeball-hover')
+          .forEach((el) => {
+            el.style.display = hoverRecallEnabled ? '' : 'none';
+          });
+        break;
+      }
     }
   });
 

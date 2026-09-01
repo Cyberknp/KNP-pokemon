@@ -1,6 +1,6 @@
 {
-    "name": "knp-pokemon",
-    "displayName": "KNP Pokémon",
+    "name": "knps-pokemon",
+    "displayName": "KNPs Pokémon",
     "description": "Pokémon for your VS Code",
     "version": "0.1.0",
     "engines": {
@@ -30,16 +30,16 @@
     "license": "MIT",
     "icon": "icon.png",
     "activationEvents": [
-        "onCommand:vscode-pokemon.start",
-        "onCommand:vscode-pokemon.spawn-pokemon",
-        "onCommand:vscode-pokemon.spawn-random-pokemon",
-        "onCommand:vscode-pokemon.delete-pokemon",
-        "onCommand:vscode-pokemon.remove-all-pokemon",
-        "onCommand:vscode-pokemon.roll-call",
-        "onCommand:vscode-pokemon.export-pokemon-list",
-        "onCommand:vscode-pokemon.import-pokemon-list",
-        "onCommand:vscode-pokemon.configure-keybindings",
-        "onCommand:vscode-pokemon.select-theme",
+        "onCommand:knps-pokemon.start",
+        "onCommand:knps-pokemon.spawn-pokemon",
+        "onCommand:knps-pokemon.spawn-random-pokemon",
+        "onCommand:knps-pokemon.delete-pokemon",
+        "onCommand:knps-pokemon.remove-all-pokemon",
+        "onCommand:knps-pokemon.roll-call",
+        "onCommand:knps-pokemon.export-pokemon-list",
+        "onCommand:knps-pokemon.import-pokemon-list",
+        "onCommand:knps-pokemon.configure-keybindings",
+        "onCommand:knps-pokemon.select-theme",
         "onWebviewPanel:pokemonCoding",
         "onView:explorer",
         "onView:pokemonView",
@@ -52,8 +52,8 @@
                 {
                     "type": "webview",
                     "id": "pokemonView",
-                    "name": "VS Code Pokémon",
-                    "when": "vscode-pokemon.position == 'explorer'",
+                    "name": "KNPs Pokémon",
+                    "when": "knps-pokemon.position == 'explorer'",
                     "icon": "media/icon/dark-add.svg"
                 }
             ]
@@ -61,22 +61,22 @@
         "menus": {
             "view/title": [
                 {
-                    "command": "vscode-pokemon.spawn-pokemon",
+                    "command": "knps-pokemon.spawn-pokemon",
                     "when": "view == pokemonView",
                     "group": "navigation@1"
                 },
                 {
-                    "command": "vscode-pokemon.spawn-random-pokemon",
+                    "command": "knps-pokemon.spawn-random-pokemon",
                     "when": "view == pokemonView",
                     "group": "navigation@2"
                 },
                 {
-                    "command": "vscode-pokemon.delete-pokemon",
+                    "command": "knps-pokemon.delete-pokemon",
                     "when": "view == pokemonView",
                     "group": "navigation@3"
                 },
                 {
-                    "command": "vscode-pokemon.select-theme",
+                    "command": "knps-pokemon.select-theme",
                     "when": "view == pokemonView",
                     "group": "navigation@4"
                 }
@@ -84,22 +84,22 @@
         },
         "commands": [
             {
-                "command": "vscode-pokemon.start",
+                "command": "knps-pokemon.start",
                 "title": "Start pokemon coding session",
                 "category": "Pokemon Coding"
             },
             {
-                "command": "vscode-pokemon.export-pokemon-list",
+                "command": "knps-pokemon.export-pokemon-list",
                 "title": "Export pokemon list",
                 "category": "Pokemon Coding"
             },
             {
-                "command": "vscode-pokemon.import-pokemon-list",
+                "command": "knps-pokemon.import-pokemon-list",
                 "title": "Import pokemon list",
                 "category": "Pokemon Coding"
             },
             {
-                "command": "vscode-pokemon.spawn-pokemon",
+                "command": "knps-pokemon.spawn-pokemon",
                 "title": "Spawn additional pokemon",
                 "category": "Pokemon Coding",
                 "icon": {
@@ -108,7 +108,7 @@
                 }
             },
             {
-                "command": "vscode-pokemon.spawn-random-pokemon",
+                "command": "knps-pokemon.spawn-random-pokemon",
                 "title": "Spawn random additional pokemon",
                 "category": "Pokemon Coding",
                 "icon": {
@@ -117,7 +117,7 @@
                 }
             },
             {
-                "command": "vscode-pokemon.delete-pokemon",
+                "command": "knps-pokemon.delete-pokemon",
                 "title": "Remove pokemon",
                 "category": "Pokemon Coding",
                 "icon": {
@@ -126,7 +126,7 @@
                 }
             },
             {
-                "command": "vscode-pokemon.remove-all-pokemon",
+                "command": "knps-pokemon.remove-all-pokemon",
                 "title": "Remove all pokemon",
                 "category": "Pokemon Coding",
                 "icon": {
@@ -135,17 +135,17 @@
                 }
             },
             {
-                "command": "vscode-pokemon.roll-call",
+                "command": "knps-pokemon.roll-call",
                 "title": "Roll-call",
                 "category": "Pokemon Coding"
             },
             {
-                "command": "vscode-pokemon.configure-keybindings",
+                "command": "knps-pokemon.configure-keybindings",
                 "title": "Configure keybindings",
                 "category": "Pokemon Coding"
             },
             {
-                "command": "vscode-pokemon.select-theme",
+                "command": "knps-pokemon.select-theme",
                 "title": "Select background theme",
                 "category": "Pokemon Coding",
                 "icon": {
@@ -156,31 +156,31 @@
         ],
         "keybindings": [
             {
-                "command": "vscode-pokemon.spawn-pokemon",
+                "command": "knps-pokemon.spawn-pokemon",
                 "key": "alt+shift+w",
                 "mac": "alt+shift+w"
             },
             {
-                "command": "vscode-pokemon.spawn-random-pokemon",
+                "command": "knps-pokemon.spawn-random-pokemon",
                 "key": "alt+shift+q",
                 "mac": "alt+shift+q"
             },
             {
-                "command": "vscode-pokemon.delete-pokemon",
+                "command": "knps-pokemon.delete-pokemon",
                 "key": "alt+shift+d",
                 "mac": "alt+shift+d"
             },
             {
-                "command": "vscode-pokemon.remove-all-pokemon",
+                "command": "knps-pokemon.remove-all-pokemon",
                 "key": "alt+shift+backspace",
                 "mac": "alt+shift+backspace"
             }
         ],
         "configuration": [
             {
-                "title": "VS Code Pokemon",
+                "title": "KNPs Pokemon",
                 "properties": {
-                    "vscode-pokemon.pokemonSize": {
+                    "knps-pokemon.pokemonSize": {
                         "type": "string",
                         "enum": [
                             "nano",
@@ -191,7 +191,7 @@
                         "default": "medium",
                         "description": "Pokemon size"
                     },
-                    "vscode-pokemon.position": {
+                    "knps-pokemon.position": {
                         "type": "string",
                         "enum": [
                             "panel",
@@ -200,7 +200,7 @@
                         "default": "explorer",
                         "description": "VSCode pokemon webview position"
                     },
-                    "vscode-pokemon.theme": {
+                    "knps-pokemon.theme": {
                         "type": "string",
                         "enum": [
                             "none",
@@ -213,22 +213,22 @@
                         "default": "none",
                         "description": "Background theme assets for your pokemon"
                     },
-                    "vscode-pokemon.dayNightCycle": {
+                    "knps-pokemon.dayNightCycle": {
                         "type": "boolean",
                         "default": false,
                         "description": "Automatically switch scenes to their dark variant at night (7 PM - 6 AM) and light variant by day, regardless of your VS Code color theme."
                     },
-                    "vscode-pokemon.randomTheme": {
+                    "knps-pokemon.randomTheme": {
                         "type": "boolean",
                         "default": false,
                         "description": "Pick a random background scene once per session instead of using the fixed 'theme' setting."
                     },
-                    "vscode-pokemon.throwBallWithMouse": {
+                    "knps-pokemon.throwBallWithMouse": {
                         "type": "boolean",
                         "default": true,
                         "description": "Click on a Pokémon to throw a Pokéball and recall it."
                     },
-                    "vscode-pokemon.defaultPokemon": {
+                    "knps-pokemon.defaultPokemon": {
                         "type": "array",
                         "items": {
                             "type": "object",
@@ -243,7 +243,7 @@
                                 },
                                 "shiny": {
                                     "type": "boolean",
-                                    "description": "Force this pokemon to be shiny (true) or non-shiny (false). If omitted, uses vscode-pokemon.shinyOdds (optional)"
+                                    "description": "Force this pokemon to be shiny (true) or non-shiny (false). If omitted, uses knps-pokemon.shinyOdds (optional)"
                                 },
                                 "pool": {
                                     "type": "array",
@@ -260,20 +260,20 @@
                         "default": [],
                         "description": "List of default pokemon to automatically spawn on startup. Each pokemon should have a 'type' (required, or 'random' to spawn a random species), and optionally 'name', 'shiny', and 'pool' (for random selection). Example: [{\"type\": \"pikachu\", \"name\": \"Sparky\"}, {\"type\": \"random\", \"pool\": [\"eevee\", \"gengar\", \"snorlax\"]}]"
                     },
-                    "vscode-pokemon.shinyOdds": {
+                    "knps-pokemon.shinyOdds": {
                         "type": "number",
                         "default": 8192,
                         "minimum": 1,
                         "description": "Odds (1 in N) for a Pokémon to be shiny. Lower = more shinies. Default is 8192."
                     },
-                    "vscode-pokemon.maxPokemon": {
+                    "knps-pokemon.maxPokemon": {
                         "type": "number",
                         "default": 6,
                         "minimum": 1,
                         "maximum": 15,
                         "description": "Maximum number of Pokemon that can be active at once. Lower values reduce CPU usage from animated sprites."
                     },
-                    "vscode-pokemon.motion": {
+                    "knps-pokemon.motion": {
                         "type": "string",
                         "enum": [
                             "system",
@@ -283,7 +283,7 @@
                         "default": "system",
                         "description": "Animation motion preference. 'system' follows your OS reduced-motion setting, 'always' animates, 'reduced' freezes animations."
                     },
-                    "vscode-pokemon.debug": {
+                    "knps-pokemon.debug": {
                         "type": "boolean",
                         "default": false,
                         "description": "Enable verbose debug logging from the Pokemon webview panel."

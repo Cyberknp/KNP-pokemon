@@ -1,8 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
 import {
-  BallState,
-  ChaseState,
   ChaseFriendState,
   ClimbWallLeftState,
   FrameResult,
@@ -49,7 +47,6 @@ function makePokemon(overrides: Partial<IPokemonType> = {}): IPokemonType {
     },
     nextFrame: () => undefined,
     swipe: () => undefined,
-    chase: () => undefined,
     getState: () => undefined as never,
     recoverState: () => undefined,
     recoverFriend: () => undefined,
@@ -164,34 +161,7 @@ describe('vertical movement states', () => {
   });
 });
 
-describe('chase states', () => {
-  function makeCanvas(height: number): HTMLCanvasElement {
-    return {
-      height,
-      style: { display: '' },
-    } as unknown as HTMLCanvasElement;
-  }
-
-  it('ChaseState cancels when the ball is already caught', () => {
-    const ball = new BallState(0, 0, 0, 0);
-    ball.paused = true;
-    const canvas = makeCanvas(200);
-    const state = new ChaseState(makePokemon(), ball, canvas);
-    expect(state.nextFrame()).toBe(FrameResult.stateCancel);
-    expect(canvas.style.display).not.toBe('none');
-  });
-
-  it('ChaseState hides the ball when the pokemon catches it', () => {
-    const pokemon = makePokemon({ left: 100, floor: 0, width: 32 });
-    // cx within (left-15, left) and cy low enough that the ball is near the ground
-    const ball = new BallState(90, 185, 0, 0);
-    const canvas = makeCanvas(200);
-    const state = new ChaseState(pokemon, ball, canvas);
-    expect(state.nextFrame()).toBe(FrameResult.stateComplete);
-    expect(ball.paused).toBe(true);
-    expect(canvas.style.display).toBe('none');
-  });
-
+describe('chaseFriend state', () => {
   it('ChaseFriendState cancels when there is no friend', () => {
     const state = new ChaseFriendState(makePokemon());
     expect(state.nextFrame()).toBe(FrameResult.stateCancel);
@@ -212,7 +182,6 @@ describe('resolveState', () => {
       States.jumpDownLeft,
       States.land,
       States.swipe,
-      States.idleWithBall,
       States.chaseFriend,
       States.standRight,
       States.standLeft,
