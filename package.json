@@ -27,7 +27,7 @@
         "pixel",
         "vscode"
     ],
-    "license": "MIT",
+    "license": "CC0-1.0",
     "icon": "icon.png",
     "activationEvents": [
         "onCommand:knps-pokemon.start",
@@ -311,6 +311,7 @@
         "@types/vscode": "^1.73.0",
         "@typescript-eslint/eslint-plugin": "^5.29.0",
         "@typescript-eslint/parser": "^5.29.0",
+        "@vscode/vsce": "^3.9.2",
         "eslint": "^8.18.0",
         "eslint-plugin-unused-imports": "^2.0.0",
         "jsdom": "^30.0.1",
