@@ -934,6 +934,11 @@ export function activate(context: vscode.ExtensionContext) {
             }),
           );
 
+          let resolveClosed: (() => void) | undefined;
+          const closed = new Promise<void>((resolve) => {
+            resolveClosed = resolve;
+          });
+
           disposables.push(
             qp.onDidAccept(async () => {
               const sel = qp.selectedItems[0] as any;
@@ -966,10 +971,10 @@ export function activate(context: vscode.ExtensionContext) {
                 );
                 if (picked) {
                   selectedPokemonType = picked;
-                  // The post-loop block below handles the name prompt, spawn
-                  // and persistence for the Generation path too, so it isn't
-                  // duplicated here.
                 }
+                // Unblock the post-loop block so it runs the name prompt,
+                // spawn and persistence for the Generation path too.
+                resolveClosed?.();
               } else {
                 selectedPokemonType = sel as any;
                 qp.hide();
@@ -977,15 +982,13 @@ export function activate(context: vscode.ExtensionContext) {
             }),
           );
 
-          const closed = new Promise<void>((resolve) => {
-            disposables.push(
-              qp.onDidHide(() => {
-                disposables.forEach((d) => d.dispose());
-                qp.dispose();
-                resolve();
-              }),
-            );
-          });
+          disposables.push(
+            qp.onDidHide(() => {
+              disposables.forEach((d) => d.dispose());
+              qp.dispose();
+              resolveClosed?.();
+            }),
+          );
 
           qp.show();
           await closed;
