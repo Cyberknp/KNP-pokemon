@@ -2,7 +2,7 @@
 
 # KNPs Pokémon
 
-![icon](icon.png)
+![KNPs Pokémon logo](icon.png)
 
 </div>
 
