@@ -72,7 +72,17 @@ npm run compile
 # 3. Run: press F5 in VS Code to open the Extension Development Host
 ```
 
-### Packaging
+### Install from a release
+
+Every tagged release publishes a ready-to-install `.vsix` to the GitHub
+Releases page (see [Releases](https://github.com/Cyberknp/KNP-pokemon/releases)):
+
+```bash
+# Download knps-pokemon-<version>.vsix from the release, then:
+code --install-extension knps-pokemon-0.1.0.vsix
+```
+
+### Build & package locally
 
 ```bash
 npx @vscode/vsce package   # produces a .vsix you can install locally:

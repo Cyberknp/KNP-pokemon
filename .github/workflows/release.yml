@@ -7,12 +7,12 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      VSCE_PAT: ${{ secrets.VSCE_PAT }}
+    environment: release
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,6 +48,9 @@ jobs:
             echo "on-main=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Always: create a GitHub Release with the .vsix attached.
+      # No external service or secret required - this is the guaranteed base
+      # distribution channel that anyone can install manually from.
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -57,8 +60,42 @@ jobs:
             --generate-notes \
             *.vsix
 
-      - name: Publish to VS Code Marketplace
-        if: steps.branch.outputs.on-main == 'true' && env.VSCE_PAT != ''
+      # Optional: publish to Open VSX (open-vsx.org). No Microsoft/Azure
+      # involved - a simple token created on open-vsx.org, stored as the
+      # OVSX_PAT secret. Runs on any tag (an Open VSX namespace must exist
+      # for the publisher id in package.json).
+      - name: Publish to Open VSX
+        if: secrets.OVSX_PAT != ''
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           vsix="$(ls *.vsix | head -n 1)"
+          npx ovsx publish "$vsix" -p "$OVSX_PAT"
+
+      # Optional: publish to the official VS Code Marketplace. Two auth modes:
+      #   A) Entra ID workload identity (no long-lived secret) - recommended.
+      #   B) Personal Access Token (VSCE_PAT) - still supported by vsce; note
+      #      global PATs retire 2026-12-01.
+      # Only runs for tags on main, and only when at least one credential is
+      # configured. Skipped entirely otherwise (GitHub Release still created).
+      - name: Azure login (Entra ID, optional Marketplace publish)
+        if: >-
+          steps.branch.outputs.on-main == 'true' &&
+          secrets.AZURE_CLIENT_ID != '' &&
+          secrets.AZURE_TENANT_ID != ''
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish to VS Code Marketplace
+        if: >-
+          steps.branch.outputs.on-main == 'true' &&
+          (secrets.AZURE_CLIENT_ID != '' || secrets.VSCE_PAT != '')
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          vsix="$(ls *.vsix | head -n 1)"
+          npx vsce publish --azure-credential --packagePath "$vsix" 2>&1 || \
           npx vsce publish --packagePath "$vsix"
