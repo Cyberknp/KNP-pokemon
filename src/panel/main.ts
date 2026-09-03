@@ -456,6 +456,11 @@ function addPokemonToPanel(
     pokemonSpriteElement.classList.add('spawn-pop');
     pokemonSpriteElement.style.opacity = '1';
 
+    stateApi?.postMessage({
+      command: 'info',
+      text: `I choose you, ${newPokemon.name}!`,
+    });
+
     if (pokemonColor === PokemonColor.shiny) {
       const shinyOverlay = document.createElement('img');
       // No cache-busting query param — let the browser reuse the cached asset (Item 6)
@@ -528,7 +533,7 @@ function removePokemonFromPanel(
 
   stateApi?.postMessage({
     command: 'info',
-    text: '👋 Removed pokemon ' + message.name,
+    text: `${message.name} was called back! 🎯`,
   });
 
   // pokemon fade out
