@@ -24,19 +24,83 @@ import {
 } from '../common/types';
 import { availableColors, normalizeColor } from '../panel/pokemon-collection';
 
-const EXTRA_POKEMON_KEY = 'vscode-pokemon.extra-pokemon';
+const EXTRA_POKEMON_KEY = 'knps-pokemon.extra-pokemon';
 const EXTRA_POKEMON_KEY_TYPES = EXTRA_POKEMON_KEY + '.types';
 const EXTRA_POKEMON_KEY_COLORS = EXTRA_POKEMON_KEY + '.colors';
 const EXTRA_POKEMON_KEY_NAMES = EXTRA_POKEMON_KEY + '.names';
+
+/**
+ * Settings section and global-state keys now use the `knps-pokemon` prefix.
+ * The `vscode-pokemon` prefix is the legacy identity (used before the rename);
+ * the shims below keep values a user configured/persisted there working, and
+ * migrate them to the new keys one time.
+ */
+const CONFIG_SECTION = 'knps-pokemon';
+const LEGACY_CONFIG_SECTION = 'vscode-pokemon';
+const LEGACY_EXTRA_POKEMON_KEY = 'vscode-pokemon.extra-pokemon';
+const LEGACY_EXTRA_POKEMON_KEY_TYPES = LEGACY_EXTRA_POKEMON_KEY + '.types';
+const LEGACY_EXTRA_POKEMON_KEY_COLORS = LEGACY_EXTRA_POKEMON_KEY + '.colors';
+const LEGACY_EXTRA_POKEMON_KEY_NAMES = LEGACY_EXTRA_POKEMON_KEY + '.names';
+const LEGACY_RANDOM_THEME_CACHE_KEY = 'vscode-pokemon.random-theme-cache';
+
 const DEFAULT_POKEMON_SCALE = PokemonSize.medium;
 const DEFAULT_COLOR = PokemonColor.default;
 const DEFAULT_POKEMON_TYPE = getDefaultPokemonType();
 const DEFAULT_POSITION = ExtPosition.panel;
 const DEFAULT_THEME = Theme.none;
-const RANDOM_THEME_CACHE_KEY = 'vscode-pokemon.random-theme-cache';
+const RANDOM_THEME_CACHE_KEY = 'knps-pokemon.random-theme-cache';
 
 /** Global memento, set in activate(); used to keep random-theme stable. */
 let extensionState: vscode.Memento | undefined;
+
+/**
+ * Reads a setting from the current `knps-pokemon` section, transparently
+ * falling back to an explicit value set under the legacy `vscode-pokemon`
+ * section so configuration written before the rename keeps applying.
+ */
+function getConfig<T>(key: string, defaultValue: T): T {
+  const current = vscode.workspace
+    .getConfiguration(CONFIG_SECTION)
+    .inspect<T>(key);
+  const currentValue = current?.globalValue ?? current?.workspaceValue;
+  if (currentValue !== undefined) {
+    return currentValue;
+  }
+  const legacy = vscode.workspace
+    .getConfiguration(LEGACY_CONFIG_SECTION)
+    .inspect<T>(key);
+  const legacyValue = legacy?.globalValue ?? legacy?.workspaceValue;
+  if (legacyValue !== undefined) {
+    return legacyValue;
+  }
+  if (current?.defaultValue !== undefined) {
+    return current.defaultValue;
+  }
+  return defaultValue;
+}
+
+/**
+ * One-time migration: copies global state persisted under the legacy
+ * `vscode-pokemon` keys into the new `knps-pokemon` keys so the user's saved
+ * party and random-theme cache survive the rename. No-op for fresh installs.
+ */
+function migrateLegacyState(state: vscode.Memento): void {
+  const migrations: Array<[string, string]> = [
+    [EXTRA_POKEMON_KEY_TYPES, LEGACY_EXTRA_POKEMON_KEY_TYPES],
+    [EXTRA_POKEMON_KEY_COLORS, LEGACY_EXTRA_POKEMON_KEY_COLORS],
+    [EXTRA_POKEMON_KEY_NAMES, LEGACY_EXTRA_POKEMON_KEY_NAMES],
+    [RANDOM_THEME_CACHE_KEY, LEGACY_RANDOM_THEME_CACHE_KEY],
+  ];
+  migrations.forEach(([newKey, legacyKey]) => {
+    if (state.get(newKey) === undefined) {
+      const legacyValue = state.get(legacyKey);
+      if (legacyValue !== undefined) {
+        void state.update(newKey, legacyValue);
+        void state.update(legacyKey, undefined);
+      }
+    }
+  });
+}
 
 class PokemonQuickPickItem implements vscode.QuickPickItem {
   constructor(
@@ -62,9 +126,7 @@ class PokemonQuickPickItem implements vscode.QuickPickItem {
 let webviewViewProvider: PokemonWebviewViewProvider;
 
 function getConfiguredSize(): PokemonSize {
-  let size = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<PokemonSize>('pokemonSize', DEFAULT_POKEMON_SCALE);
+  let size = getConfig<PokemonSize>('pokemonSize', DEFAULT_POKEMON_SCALE);
   if (ALL_SCALES.lastIndexOf(size) === -1) {
     size = DEFAULT_POKEMON_SCALE;
   }
@@ -72,17 +134,13 @@ function getConfiguredSize(): PokemonSize {
 }
 
 function getConfiguredTheme(): Theme {
-  let theme = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<Theme>('theme', DEFAULT_THEME);
+  let theme = getConfig<Theme>('theme', DEFAULT_THEME);
   if (ALL_THEMES.lastIndexOf(theme) === -1) {
     theme = DEFAULT_THEME;
   }
   // Random rotation (Background Beauty, Phase 5): pick a scene once per
   // session and cache it so webview rebuilds don't flicker between scenes.
-  const randomTheme = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<boolean>('randomTheme', false);
+  const randomTheme = getConfig<boolean>('randomTheme', false);
   if (randomTheme && extensionState) {
     const cached = extensionState.get<Theme>(RANDOM_THEME_CACHE_KEY);
     if (cached && ALL_THEMES.lastIndexOf(cached) !== -1) {
@@ -98,9 +156,7 @@ function getConfiguredTheme(): Theme {
 
 /** Day/night auto-switching (Background Beauty, Phase 4). */
 function getConfiguredDayNightCycle(): boolean {
-  return vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<boolean>('dayNightCycle', false);
+  return getConfig<boolean>('dayNightCycle', false);
 }
 
 function getConfiguredThemeKind(): ColorThemeKind {
@@ -108,35 +164,25 @@ function getConfiguredThemeKind(): ColorThemeKind {
 }
 
 function getConfigurationPosition() {
-  return vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<ExtPosition>('position', DEFAULT_POSITION);
+  return getConfig<ExtPosition>('position', DEFAULT_POSITION);
 }
 
 function getThrowWithMouseConfiguration(): boolean {
-  return vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<boolean>('throwBallWithMouse', true);
+  return getConfig<boolean>('throwBallWithMouse', true);
 }
 
 function getConfiguredShinyOdds(): number {
-  return vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<number>('shinyOdds', 8192);
+  return getConfig<number>('shinyOdds', 8192);
 }
 
 /** Verbose logging flag for the webview (Item 5). */
 function getConfiguredDebug(): boolean {
-  return vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<boolean>('debug', false);
+  return getConfig<boolean>('debug', false);
 }
 
 /** Maximum number of simultaneously animated Pokémon (Item 8). */
 function getConfiguredMaxPokemon(): number {
-  const raw = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<number>('maxPokemon', 6);
+  const raw = getConfig<number>('maxPokemon', 6);
   if (typeof raw !== 'number' || Number.isNaN(raw)) {
     return 6;
   }
@@ -147,9 +193,7 @@ type MotionSetting = 'system' | 'always' | 'reduced';
 
 /** Reduced-motion preference for animations (Item 11). */
 function getConfiguredMotion(): MotionSetting {
-  const motion = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<MotionSetting>('motion', 'system');
+  const motion = getConfig<MotionSetting>('motion', 'system');
   if (motion !== 'system' && motion !== 'always' && motion !== 'reduced') {
     return 'system';
   }
@@ -216,9 +260,10 @@ function resolveRandomPokemonType(pool?: PokemonType[]): PokemonType {
 }
 
 function getConfiguredDefaultPokemon(): PokemonSpecification[] {
-  const defaultConfig = vscode.workspace
-    .getConfiguration('vscode-pokemon')
-    .get<IDefaultPokemonConfig[]>('defaultPokemon', []);
+  const defaultConfig = getConfig<IDefaultPokemonConfig[]>(
+    'defaultPokemon',
+    [],
+  );
 
   const size = getConfiguredSize();
   const result: PokemonSpecification[] = [];
@@ -256,7 +301,8 @@ function getConfiguredDefaultPokemon(): PokemonSpecification[] {
     result.push(new PokemonSpecification(color, resolvedType, size, name));
   }
 
-  return result;
+  // Enforce maxPokemon so persisted/default spawns never exceed the party cap.
+  return result.slice(0, getConfiguredMaxPokemon());
 }
 
 function getSessionPokemonCollection(
@@ -300,11 +346,14 @@ async function spawnAndPersistCollection(
   panel: IPokemonPanel,
   collection: PokemonSpecification[],
 ): Promise<void> {
-  collection.forEach((item) => {
+  // Caps at maxPokemon so the webview never has to drop over-cap spawns on
+  // its own while the extension still persists the full (surplus) list.
+  const cappedCollection = collection.slice(0, getConfiguredMaxPokemon());
+  cappedCollection.forEach((item) => {
     panel.spawnPokemon(item);
   });
 
-  await storeCollectionAsMemento(context, collection);
+  await storeCollectionAsMemento(context, cappedCollection);
 }
 
 function updatePanelThrowWithMouse(): void {
@@ -317,7 +366,7 @@ function updatePanelThrowWithMouse(): void {
 async function updateExtensionPositionContext() {
   await vscode.commands.executeCommand(
     'setContext',
-    'vscode-pokemon.position',
+    'knps-pokemon.position',
     getConfigurationPosition(),
   );
 }
@@ -350,15 +399,11 @@ export class PokemonSpecification {
   }
 
   static fromConfiguration(): PokemonSpecification {
-    let color = vscode.workspace
-      .getConfiguration('vscode-pokemon')
-      .get<PokemonColor>('pokemonColor', DEFAULT_COLOR);
+    let color = getConfig<PokemonColor>('pokemonColor', DEFAULT_COLOR);
     if (ALL_COLORS.lastIndexOf(color) === -1) {
       color = DEFAULT_COLOR;
     }
-    let type = vscode.workspace
-      .getConfiguration('vscode-pokemon')
-      .get<PokemonType>('pokemonType', DEFAULT_POKEMON_TYPE);
+    let type = getConfig<PokemonType>('pokemonType', DEFAULT_POKEMON_TYPE);
 
     // Use POKEMON_DATA to validate the type
     if (!POKEMON_DATA[type]) {
@@ -480,12 +525,11 @@ function getWebview(): vscode.Webview | undefined {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  // Reset the Pokemon translations cache at startup to load the correct language
-  localize.resetPokemonTranslationsCache();
   extensionState = context.globalState;
+  migrateLegacyState(context.globalState);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('vscode-pokemon.start', async () => {
+    vscode.commands.registerCommand('knps-pokemon.start', async () => {
       if (
         getConfigurationPosition() === ExtPosition.explorer &&
         webviewViewProvider
@@ -494,6 +538,7 @@ export function activate(context: vscode.ExtensionContext) {
       } else {
         const spec = PokemonSpecification.fromConfiguration();
         PokemonPanel.createOrShow(
+          context,
           context.extensionUri,
           spec.color,
           spec.type,
@@ -521,7 +566,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.StatusBarAlignment.Right,
     100,
   );
-  spawnPokemonStatusBar.command = 'vscode-pokemon.spawn-pokemon';
+  spawnPokemonStatusBar.command = 'knps-pokemon.spawn-pokemon';
   context.subscriptions.push(spawnPokemonStatusBar);
 
   context.subscriptions.push(
@@ -561,12 +606,18 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.delete-pokemon',
+      'knps-pokemon.delete-pokemon',
       async () => {
         const panel = getPokemonPanel();
         if (panel === undefined) {
           await createPokemonPlayground(context);
           return;
+        }
+        if (
+          getConfigurationPosition() === ExtPosition.explorer &&
+          webviewViewProvider
+        ) {
+          await vscode.commands.executeCommand('pokemonView.focus');
         }
         const webview = getWebview();
         if (!webview) {
@@ -612,10 +663,16 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.remove-all-pokemon',
+      'knps-pokemon.remove-all-pokemon',
       async () => {
         const panel = getPokemonPanel();
         if (panel !== undefined) {
+          if (
+            getConfigurationPosition() === ExtPosition.explorer &&
+            webviewViewProvider
+          ) {
+            await vscode.commands.executeCommand('pokemonView.focus');
+          }
           panel.resetPokemon();
           await storeCollectionAsMemento(context, []);
         } else {
@@ -631,9 +688,15 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('vscode-pokemon.roll-call', async () => {
+    vscode.commands.registerCommand('knps-pokemon.roll-call', async () => {
       const panel = getPokemonPanel();
       if (panel !== undefined) {
+        if (
+          getConfigurationPosition() === ExtPosition.explorer &&
+          webviewViewProvider
+        ) {
+          await vscode.commands.executeCommand('pokemonView.focus');
+        }
         panel.rollCall();
       } else {
         await createPokemonPlayground(context);
@@ -643,28 +706,28 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.configure-keybindings',
+      'knps-pokemon.configure-keybindings',
       async () => {
         const items: Array<vscode.QuickPickItem & { commandId: string }> = [
           {
             label: vscode.l10n.t('Spawn additional pokemon'),
-            description: 'vscode-pokemon.spawn-pokemon',
-            commandId: 'vscode-pokemon.spawn-pokemon',
+            description: 'knps-pokemon.spawn-pokemon',
+            commandId: 'knps-pokemon.spawn-pokemon',
           },
           {
             label: vscode.l10n.t('Spawn random pokemon'),
-            description: 'vscode-pokemon.spawn-random-pokemon',
-            commandId: 'vscode-pokemon.spawn-random-pokemon',
+            description: 'knps-pokemon.spawn-random-pokemon',
+            commandId: 'knps-pokemon.spawn-random-pokemon',
           },
           {
             label: vscode.l10n.t('Remove pokemon'),
-            description: 'vscode-pokemon.delete-pokemon',
-            commandId: 'vscode-pokemon.delete-pokemon',
+            description: 'knps-pokemon.delete-pokemon',
+            commandId: 'knps-pokemon.delete-pokemon',
           },
           {
             label: vscode.l10n.t('Remove all pokemon'),
-            description: 'vscode-pokemon.remove-all-pokemon',
-            commandId: 'vscode-pokemon.remove-all-pokemon',
+            description: 'knps-pokemon.remove-all-pokemon',
+            commandId: 'knps-pokemon.remove-all-pokemon',
           },
         ];
 
@@ -687,85 +750,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.change-pokemon-language',
-      async () => {
-        const config = vscode.workspace.getConfiguration('vscode-pokemon');
-        const currentLanguage = config.get<string>('pokemonLanguage', 'auto');
-
-        // Language display names and flags (official Pokemon languages only)
-        /* eslint-disable @typescript-eslint/naming-convention */
-        const languageLabels: {
-          [key: string]: { label: string; description: string };
-        } = {
-          auto: {
-            label: '$(globe) Auto',
-            description: vscode.l10n.t('Use VS Code language'),
-          },
-          'en-US': {
-            label: '🇺🇸 English (US)',
-            description: vscode.l10n.t('English names'),
-          },
-        } as { [key: string]: { label: string; description: string } };
-        /* eslint-enable @typescript-eslint/naming-convention */
-
-        const languageOptions: Array<vscode.QuickPickItem & { value: string }> =
-          [
-            {
-              label: languageLabels['auto'].label,
-              description: languageLabels['auto'].description,
-              detail:
-                currentLanguage === 'auto'
-                  ? vscode.l10n.t('Current')
-                  : undefined,
-              value: 'auto',
-            },
-            ...localize.SUPPORTED_LOCALES.map((locale) => ({
-              label: languageLabels[locale]?.label || locale,
-              description: languageLabels[locale]?.description || locale,
-              detail:
-                currentLanguage === locale
-                  ? vscode.l10n.t('Current')
-                  : undefined,
-              value: locale,
-            })),
-          ];
-
-        const picked = await vscode.window.showQuickPick(languageOptions, {
-          placeHolder: vscode.l10n.t('Select language for Pokemon names'),
-        });
-
-        if (!picked) {
-          return;
-        }
-
-        // Update configuration persistently
-        await config.update(
-          'pokemonLanguage',
-          picked.value,
-          vscode.ConfigurationTarget.Global,
-        );
-
-        // Reset translation cache to force reload
-        localize.resetPokemonTranslationsCache();
-
-        // Preload translations with the new language
-        // This ensures the cache is immediately available
-        const testPokemon: PokemonType = 'bulbasaur';
-        localize.getLocalizedPokemonName(testPokemon);
-
-        await vscode.window.showInformationMessage(
-          vscode.l10n.t(
-            'Pokemon language changed to {0}. The change will persist after restart.',
-            picked.label,
-          ),
-        );
-      },
-    ),
-  );
-
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      'vscode-pokemon.export-pokemon-list',
+      'knps-pokemon.export-pokemon-list',
       async () => {
         const pokemonCollection = PokemonSpecification.collectionFromMemento(
           context,
@@ -802,7 +787,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.import-pokemon-list',
+      'knps-pokemon.import-pokemon-list',
       async () => {
         const options: vscode.OpenDialogOptions = {
           canSelectMany: false,
@@ -854,7 +839,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.spawn-pokemon',
+      'knps-pokemon.spawn-pokemon',
       async () => {
         const panel = getPokemonPanel();
         if (
@@ -949,6 +934,11 @@ export function activate(context: vscode.ExtensionContext) {
             }),
           );
 
+          let resolveClosed: (() => void) | undefined;
+          const closed = new Promise<void>((resolve) => {
+            resolveClosed = resolve;
+          });
+
           disposables.push(
             qp.onDidAccept(async () => {
               const sel = qp.selectedItems[0] as any;
@@ -981,38 +971,10 @@ export function activate(context: vscode.ExtensionContext) {
                 );
                 if (picked) {
                   selectedPokemonType = picked;
-
-                  // Handle the rest of the flow
-                  const possibleColors = availableColors(
-                    selectedPokemonType.value,
-                  );
-
-                  const name = await vscode.window.showInputBox({
-                    placeHolder: vscode.l10n.t('Leave blank for a random name'),
-                    prompt: vscode.l10n.t('Name your Pokemon'),
-                    value: randomName(),
-                  });
-
-                  if (name === undefined) {
-                    console.log('Cancelled Spawning Pokemon - No Name Entered');
-                    return;
-                  }
-
-                  const spec = new PokemonSpecification(
-                    maybeMakeShiny(possibleColors),
-                    selectedPokemonType.value,
-                    getConfiguredSize(),
-                    name,
-                  );
-
-                  panel.spawnPokemon(spec);
-                  const collection = PokemonSpecification.collectionFromMemento(
-                    context,
-                    getConfiguredSize(),
-                  );
-                  collection.push(spec);
-                  await storeCollectionAsMemento(context, collection);
                 }
+                // Unblock the post-loop block so it runs the name prompt,
+                // spawn and persistence for the Generation path too.
+                resolveClosed?.();
               } else {
                 selectedPokemonType = sel as any;
                 qp.hide();
@@ -1020,23 +982,16 @@ export function activate(context: vscode.ExtensionContext) {
             }),
           );
 
-          const closed = new Promise<void>((resolve) => {
-            disposables.push(
-              qp.onDidHide(() => {
-                disposables.forEach((d) => d.dispose());
-                qp.dispose();
-                resolve();
-              }),
-            );
-          });
+          disposables.push(
+            qp.onDidHide(() => {
+              disposables.forEach((d) => d.dispose());
+              qp.dispose();
+              resolveClosed?.();
+            }),
+          );
 
           qp.show();
           await closed;
-
-          if (!selectedPokemonType) {
-            console.log('Cancelled Spawning Pokemon - No Selection');
-            return;
-          }
 
           if (!selectedPokemonType) {
             console.log('Cancelled Spawning Pokemon - No Pokemon Selected');
@@ -1085,7 +1040,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.spawn-random-pokemon',
+      'knps-pokemon.spawn-random-pokemon',
       async () => {
         const panel = getPokemonPanel();
         if (
@@ -1128,9 +1083,9 @@ export function activate(context: vscode.ExtensionContext) {
   // which repaints the panel automatically.
   context.subscriptions.push(
     vscode.commands.registerCommand(
-      'vscode-pokemon.select-theme',
+      'knps-pokemon.select-theme',
       async () => {
-        const config = vscode.workspace.getConfiguration('vscode-pokemon');
+        const config = vscode.workspace.getConfiguration(CONFIG_SECTION);
         const current = getConfiguredTheme();
         const items: Array<vscode.QuickPickItem & { value: Theme }> =
           ALL_THEMES.map((t) => ({
@@ -1160,15 +1115,23 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration(
       (e: vscode.ConfigurationChangeEvent): void => {
-        if (
-          e.affectsConfiguration('vscode-pokemon.pokemonColor') ||
-          e.affectsConfiguration('vscode-pokemon.pokemonType') ||
-          e.affectsConfiguration('vscode-pokemon.pokemonSize') ||
-          e.affectsConfiguration('vscode-pokemon.theme') ||
-          e.affectsConfiguration('vscode-pokemon.randomTheme') ||
-          e.affectsConfiguration('vscode-pokemon.dayNightCycle') ||
-          e.affectsConfiguration('workbench.colorTheme')
-        ) {
+        const affectsAny = (scope: string, key: string): boolean =>
+          e.affectsConfiguration(`${scope}.${key}`);
+
+        const repaintKeys = [
+          'pokemonColor',
+          'pokemonType',
+          'pokemonSize',
+          'theme',
+          'randomTheme',
+          'dayNightCycle',
+        ];
+        const repaintChanged = repaintKeys.some(
+          (key) =>
+            affectsAny(CONFIG_SECTION, key) ||
+            affectsAny(LEGACY_CONFIG_SECTION, key),
+        );
+        if (repaintChanged || e.affectsConfiguration('workbench.colorTheme')) {
           const spec = PokemonSpecification.fromConfiguration();
           const panel = getPokemonPanel();
           if (panel) {
@@ -1180,22 +1143,18 @@ export function activate(context: vscode.ExtensionContext) {
           }
         }
 
-        if (e.affectsConfiguration('vscode-pokemon.position')) {
+        if (
+          affectsAny(CONFIG_SECTION, 'position') ||
+          affectsAny(LEGACY_CONFIG_SECTION, 'position')
+        ) {
           void updateExtensionPositionContext();
         }
 
-        if (e.affectsConfiguration('vscode-pokemon.throwBallWithMouse')) {
+        if (
+          affectsAny(CONFIG_SECTION, 'throwBallWithMouse') ||
+          affectsAny(LEGACY_CONFIG_SECTION, 'throwBallWithMouse')
+        ) {
           updatePanelThrowWithMouse();
-        }
-
-        if (e.affectsConfiguration('vscode-pokemon.pokemonLanguage')) {
-          // Reset the Pokemon translations cache when the language changes
-          localize.resetPokemonTranslationsCache();
-          // Update the panel to reflect the new language
-          const panel = getPokemonPanel();
-          if (panel) {
-            panel.update();
-          }
         }
       },
     ),
@@ -1209,6 +1168,7 @@ export function activate(context: vscode.ExtensionContext) {
         webviewPanel.webview.options = getWebviewOptions(context.extensionUri);
         const spec = PokemonSpecification.fromConfiguration();
         PokemonPanel.revive(
+          context,
           webviewPanel,
           context.extensionUri,
           spec.color,
@@ -1246,6 +1206,14 @@ export function spawnPokemonDeactivate() {
   spawnPokemonStatusBar.dispose();
 }
 
+/**
+ * Standard VS Code lifecycle hook. Disposes resources owned by the extension
+ * (e.g. the status bar item) when the extension is deactivated.
+ */
+export function deactivate() {
+  spawnPokemonDeactivate();
+}
+
 function getWebviewOptions(
   extensionUri: vscode.Uri,
 ): vscode.WebviewOptions & vscode.WebviewPanelOptions {
@@ -1258,7 +1226,6 @@ function getWebviewOptions(
 }
 
 interface IPokemonPanel {
-  // throwBall(): void;
   resetPokemon(): void;
   spawnPokemon(spec: PokemonSpecification): void;
   deletePokemon(pokemonName: string): void;
@@ -1369,12 +1336,6 @@ class PokemonWebviewContainer implements IPokemonPanel {
     });
   }
 
-  public throwBall() {
-    void this.getWebview().postMessage({
-      command: 'throw-ball',
-    });
-  }
-
   public resetPokemon(): void {
     void this.getWebview().postMessage({
       command: 'reset-pokemon',
@@ -1389,10 +1350,6 @@ class PokemonWebviewContainer implements IPokemonPanel {
       name: spec.name,
       generation: spec.generation,
       originalSpriteSize: spec.originalSpriteSize,
-    });
-    void this.getWebview().postMessage({
-      command: 'set-size',
-      size: spec.size,
     });
   }
 
@@ -1489,7 +1446,7 @@ class PokemonWebviewContainer implements IPokemonPanel {
                     src: url('${silkScreenFontPath}') format('truetype');
                 }
                 </style>
-				<title>VS Code Pokemon</title>
+				<title>KNPs Pokemon</title>
 			</head>
 			<body>
                 <canvas id="pokemonCanvas"></canvas>
@@ -1521,13 +1478,27 @@ class PokemonWebviewContainer implements IPokemonPanel {
   }
 }
 
-function handleWebviewMessage(message: WebviewMessage) {
+function handleWebviewMessage(
+  context: vscode.ExtensionContext,
+  message: WebviewMessage,
+) {
   switch (message.command) {
     case 'alert':
       void vscode.window.showErrorMessage(message.text);
       return;
     case 'info':
       void vscode.window.showInformationMessage(message.text);
+      return;
+    case 'pokemon-released':
+      // The webview recalled (removed) a pokemon; drop it from the persisted
+      // collection so it doesn't respawn on the next session.
+      void storeCollectionAsMemento(
+        context,
+        PokemonSpecification.collectionFromMemento(
+          context,
+          getConfiguredSize(),
+        ).filter((spec) => spec.name !== message.text),
+      );
       return;
   }
 }
@@ -1544,8 +1515,10 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   public static readonly viewType = 'pokemonCoding';
 
   private readonly _panel: vscode.WebviewPanel;
+  private readonly _context: vscode.ExtensionContext;
 
   public static createOrShow(
+    context: vscode.ExtensionContext,
     extensionUri: vscode.Uri,
     pokemonColor: PokemonColor,
     pokemonType: PokemonType,
@@ -1586,6 +1559,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     );
 
     PokemonPanel.currentPanel = new PokemonPanel(
+      context,
       panel,
       extensionUri,
       pokemonColor,
@@ -1619,6 +1593,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   }
 
   public static revive(
+    context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     pokemonColor: PokemonColor,
@@ -1631,6 +1606,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     throwBallWithMouse: boolean,
   ) {
     PokemonPanel.currentPanel = new PokemonPanel(
+      context,
       panel,
       extensionUri,
       pokemonColor,
@@ -1645,6 +1621,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
   }
 
   private constructor(
+    context: vscode.ExtensionContext,
     panel: vscode.WebviewPanel,
     extensionUri: vscode.Uri,
     color: PokemonColor,
@@ -1669,6 +1646,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
     );
 
     this._panel = panel;
+    this._context = context;
 
     // Set the webview's initial html content
     this._update();
@@ -1694,7 +1672,7 @@ class PokemonPanel extends PokemonWebviewContainer implements IPokemonPanel {
 
     // Handle messages from the webview
     this._panel.webview.onDidReceiveMessage(
-      handleWebviewMessage,
+      (m: WebviewMessage) => handleWebviewMessage(this._context, m),
       null,
       this._disposables,
     );
@@ -1764,7 +1742,7 @@ class PokemonWebviewViewProvider extends PokemonWebviewContainer {
     webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
     webviewView.webview.onDidReceiveMessage(
-      handleWebviewMessage,
+      (m: WebviewMessage) => handleWebviewMessage(this._context, m),
       null,
       this._disposables,
     );
@@ -1819,6 +1797,7 @@ function getNonce() {
 async function createPokemonPlayground(context: vscode.ExtensionContext) {
   const spec = PokemonSpecification.fromConfiguration();
   PokemonPanel.createOrShow(
+    context,
     context.extensionUri,
     spec.color,
     spec.type,

@@ -1,8 +1,8 @@
 <div align='center'>
 
-# KNP Pokémon
+# KNPs Pokémon
 
-![icon](icon.png)
+![KNPs Pokémon logo](icon.png)
 
 </div>
 
@@ -19,21 +19,46 @@
 > below. This repository is a non-commercial fan project and is not affiliated
 > with Nintendo, The Pokémon Company, or Game Freak.
 
-## What's different from the original
+## What's different
 
-- 🎾 **Hover Pokéball recall** — hover any companion and click its Pokéball to
-  recall it instantly, no command palette needed.
-- 🎉 **Recall-all cascade** — "Remove All" recalls the party in a rippling
-  stagger instead of all at once.
-- 👥 **Configurable party cap** (`vscode-pokemon.maxPokemon`) with a friendly
-  "party is full" notice.
-- ♻️ **Unique-name safeguard** — freshly spawned companions can never share a
-  name, so recall/friend lookups stay unambiguous.
-- ⚡ **Performance overhaul** — one shared animation loop, debounced state
-  saves, pause-on-hide, reduced-motion support (`vscode-pokemon.motion`),
-  debug logging toggle, production builds with console stripping.
-- 🧪 **Quality tooling** — ESLint strict rules, vitest state-machine test
-  suite, GIF asset-compression pipeline.
+On top of the classic wandering companions, this fork adds:
+
+- 🎾 **Hover-to-interact + Pokéball recall** — hover any companion to make it
+  swipe, then click its Pokéball to recall it instantly — no command palette
+  needed. "Remove All" recalls the whole party with a rippling 150 ms cascade
+  (instant under reduced motion).
+- 👥 **Party management** — a configurable cap (`knps-pokemon.maxPokemon`,
+  1–15) with a friendly "party is full" notice, plus a unique-name safeguard
+  so freshly spawned companions never share a name.
+- 👯 **Friendship** — overlapping Pokémon introduce themselves with a heart
+  bubble and chase-play together.
+- 🌍 **Background Beauty scenes** — six switchable scenes
+  (forest/castle/beach/volcano/snow) built from layered background, optional
+  parallax midground, and foreground art — with automatic dark/light
+  day-night variants (`knps-pokemon.dayNightCycle`) and per-session random
+  scene rotation (`knps-pokemon.randomTheme`).
+- ⚡ **Performance overhaul** — one shared 100 ms animation loop (no
+  per-Pokémon timers), a friend scan every 5 ticks, a 30 s position-save
+  safety net, pause-on-hide, reduced-motion support (`knps-pokemon.motion`),
+  a debug logging toggle, and production builds that strip console output.
+- ♻️ **Rebrand with built-in migration** — the extension is now
+  `knps-pokemon` (`vscode-pokemon` remains as the legacy identity); settings
+  and your saved party are read from both and migrated automatically.
+- 🧪 **Quality tooling** — ESLint strict rules, a vitest state-machine +
+  background test suite (23 tests), a GIF asset-compression pipeline, and
+  clean `compile` / `compile:prod` / `watch` scripts.
+
+### How this compares to the inspirations
+
+- **jakobhoeg/vscode-pokemon** — the foundation: animated pixel-art
+  companions, spawn/recall commands, the Pokéball release animation, and the
+  Gen 1–5 sprite registry are carried over from this (CC0) project.
+- **tonybaloney/vscode-pets** — the stylistic reference for approachable,
+  always-available companions and the scene/theme ideas this fork explores.
+- **KNPs Pokémon adds** — hover-to-swipe + Pokéball click-to-recall, the
+  recall-all cascade, friendship pairs, the six-scene day/night/random
+  background system, party caps + unique names, performance and QA hardening,
+  and the `knps-pokemon` rebrand with automatic legacy migration.
 
 ## Building & running locally
 
@@ -41,40 +66,52 @@
 # 1. Install dependencies
 npm install
 
-# 2. Compile (webpack — node + web targets)
+# 2. Compile (webpack panel bundle + tsc host)
 npm run compile
 
 # 3. Run: press F5 in VS Code to open the Extension Development Host
 ```
 
-### Packaging
+### Install from a release
+
+Every tagged release publishes a ready-to-install `.vsix` to the GitHub
+Releases page (see [Releases](https://github.com/Cyberknp/KNP-pokemon/releases)):
+
+```bash
+# Download knps-pokemon-<version>.vsix from the release, then:
+code --install-extension knps-pokemon-0.1.0.vsix
+```
+
+### Build & package locally
 
 ```bash
 npx @vscode/vsce package   # produces a .vsix you can install locally:
-code --install-extension knp-pokemon-0.1.0.vsix
+code --install-extension knps-pokemon-0.1.0.vsix
 ```
 
 ## Usage
 
 Open the command palette (`Ctrl+Shift+P` on Windows/Linux or `Cmd(⌘)+Shift+P`
 on MacOS) and run the "Start Pokemon coding session" command to spawn your
-first Pokémon. Release new ones via the picker (`Alt+Shift+W` for a random
-spawn), hover a companion and click its Pokéball to recall it individually, or
-use "Remove All Pokemon" to watch the cascade clear the panel.
+first Pokémon. Spawn more from the picker (`Alt+Shift+W`) or instantly at
+random (`Alt+Shift+Q`), hover a companion and click its Pokéball to recall it
+individually, or use "Remove All Pokemon" to watch the cascade clear the panel.
 
 ### Settings
 
 | Setting | Default | Description |
 |---|---|---|
-| `vscode-pokemon.pokemonSize` | `medium` | Sprite scale (nano/small/medium/large) |
-| `vscode-pokemon.position` | `explorer` | Sidebar view or editor tab |
-| `vscode-pokemon.theme` | `none` | Background scene (none/forest/castle/beach) |
-| `vscode-pokemon.defaultPokemon` | `[]` | Party auto-spawned at startup |
-| `vscode-pokemon.shinyOdds` | `8192` | 1-in-N shiny chance |
-| `vscode-pokemon.pokemonLanguage` | `auto` | Language for Pokémon names |
-| `vscode-pokemon.maxPokemon` | `6` | Maximum simultaneous Pokémon |
-| `vscode-pokemon.motion` | `system` | Animation preference (system/always/reduced) |
-| `vscode-pokemon.debug` | `false` | Verbose webview logging |
+| `knps-pokemon.pokemonSize` | `medium` | Sprite scale (nano/small/medium/large) |
+| `knps-pokemon.position` | `explorer` | Sidebar view or editor tab |
+| `knps-pokemon.theme` | `none` | Background scene (none/forest/castle/beach/volcano/snow) |
+| `knps-pokemon.dayNightCycle` | `false` | Switch scenes to dark/light variants by time of day |
+| `knps-pokemon.randomTheme` | `false` | Pick a random scene once per session |
+| `knps-pokemon.throwBallWithMouse` | `true` | Throw a Pokéball to recall a Pokémon on click |
+| `knps-pokemon.defaultPokemon` | `[]` | Party auto-spawned at startup — each entry: `type` ('random' allowed), optional `name`, `shiny`, and `pool` (for random) |
+| `knps-pokemon.shinyOdds` | `8192` | 1-in-N shiny chance |
+| `knps-pokemon.maxPokemon` | `6` | Maximum simultaneous Pokémon |
+| `knps-pokemon.motion` | `system` | Animation preference (system/always/reduced) |
+| `knps-pokemon.debug` | `false` | Verbose webview logging |
 
 ## Credits
 

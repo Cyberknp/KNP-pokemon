@@ -15,3 +15,4 @@ coverage/**
 .github/**
 IMPROVEMENT_PLAN.md
 PR1_REVIEW.md
+node_modules/**

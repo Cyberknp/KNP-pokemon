@@ -1,10 +1,10 @@
-# 🎮 KNP Pokémon — Unified Implementation Documentation
+# 🎮 KNPs Pokémon — Unified Implementation Documentation
 
 > **Single-source reference combining `BACKGROUND_BEAUTY.md` + `IMPLEMENTATION_PLAN.md` + `BUG_FIXES_PLAN.md`**
 > Covers every feature, change, and fix currently implemented in the codebase.
 
 **Repo:** https://github.com/Cyberknp/KNP-pokemon  
-**Package:** `knp-pokemon` v0.1.0 — `publisher: Cyberknp`  
+**Package:** `knps-pokemon` v0.1.0 — `publisher: Cyberknp`  
 **Engines:** VS Code `^1.73.0` · TypeScript · webpack (panel) + tsc (host) · vitest + jsdom  
 **Status:** ✅ All core features implemented · Background Beauty Phases 1–5 shipped · All blockers fixed (PR #4)
 
@@ -45,11 +45,11 @@ All items from `IMPLEMENTATION_PLAN §1` are shipped on `25082026_pokemon_extens
 | Feature | Implementation |
 |---|---|
 | **Gen 1–5 registry** | `src/common/pokemon-gen1–5.ts` merged in `pokemon-data.ts` → `POKEMON_DATA` (728 entries, `id/name/generation/cry/possibleColors/originalSpriteSize`) |
-| **Webview panel** | `pokemonView` in Explorer sidebar (`when: vscode-pokemon.position == 'explorer'`) + `PokemonPanel` editor-tab fallback |
+| **Webview panel** | `pokemonView` in Explorer sidebar (`when: knps-pokemon.position == 'explorer'`) + `PokemonPanel` editor-tab fallback |
 | **Spawn** | `spawn-pokemon` → two-level QuickPick (generation folders → search) + custom name + shiny roll; `spawn-random-pokemon` instant |
 | **Recall** | Single / all, Pokéball open/close animations (6-frame `pokeball_sprite_sheet.png`), fade/pop effects |
-| **Throw ball + chase** | `throwBallWithMouse` flag threaded host→webview, `ChaseState` |
-| **Shiny variants** | `maybeMakeShiny()` with `vscode-pokemon.shinyOdds` (default 8192) + sparkle overlay (`shiny-anim.gif`) |
+| **Hover Pokéball recall** | `throwBallWithMouse` flag threaded host→webview; `.pokeball-hover` button inside the collision box (R2) |
+| **Shiny variants** | `maybeMakeShiny()` with `knps-pokemon.shinyOdds` (default 8192) + sparkle overlay (`shiny-anim.gif`) |
 | **Size scaling** | `PokemonSize nano/small/medium/large` → multiplier on `originalSpriteSize` |
 | **Party cap** | `maxPokemon` (1–15, default 6), enforced in webview with toast |
 | **Reduced motion** | `motion: system/always/reduced`, OS `prefers-reduced-motion` listener, pauses loop + parallax |
@@ -57,9 +57,9 @@ All items from `IMPLEMENTATION_PLAN §1` are shipped on `25082026_pokemon_extens
 | **Themes** | `none/forest/castle/beach/volcano/snow` (light+dark × 4 sizes) |
 | **Persistence** | `globalState` mementos (`extra-pokemon.types/colors/names`, `setKeysForSync`) + webview `setState` (positions/state/friends), saved on spawn/recall/reset/pause + 30s safety net |
 | **Import/Export** | JSON party backup via untitled doc / file picker, color normalization |
-| **Localization** | `vscode.l10n` + `src/common/localize.ts` (`pokemon/{locale}/genN.json`, `pokemonLanguage: auto/en-US`) |
+| **UI localization** | `vscode.l10n` + `src/common/localize.ts` (`bundle.l10n.*.json` for UI strings; species names always English) |
 | **Animation loop** | Single `setInterval 100ms` (`ensureAnimationLoop`), friend scan every 5 ticks, pause/resume on visibility |
-| **Quality** | ESLint strict, vitest 25 tests (states + backgrounds), `webpack` + `tsc` builds |
+| **Quality** | ESLint strict, vitest 23 tests (states + backgrounds), `webpack` + `tsc` builds |
 
 ---
 
@@ -71,7 +71,7 @@ All items from `IMPLEMENTATION_PLAN §1` are shipped on `25082026_pokemon_extens
 |---|---|---|---|
 | 1 | `Theme` enum | `src/common/types.ts:55` | `none, forest, castle, beach, volcano, snow` |
 | 2 | `ALL_THEMES` | `src/common/types.ts:87` | Validation list |
-| 3 | Setting declaration | `package.json` → `vscode-pokemon.theme` enum | Settings UI |
+| 3 | Setting declaration | `package.json` → `knps-pokemon.theme` enum | Settings UI |
 | 4 | Config read | `src/extension/extension.ts:74` `getConfiguredTheme()` + `DEFAULT_THEME` | Fallback to `none`; handles `randomTheme`/`dayNightCycle` |
 | 5 | HTML injection | `src/extension/extension.ts:1427-1517` `_getHtmlForWebview` | `basePokemonUri/theme/themeKind/size` → `pokemonPanelApp()` |
 | 6 | CSS application | `src/panel/main.ts:240-310` `applySceneLayers()` | Sets `body` + `#foreground` + `#midground` images, returns `floor` |
@@ -118,7 +118,7 @@ Added `volcano` (crater sky, basalt) + `snow` (icy plain, pine) — assets + `Th
 
 ### 3.6 Phase 2 — In-Panel Theme Picker (✅ Shipped)
 
-* Command `vscode-pokemon.select-theme` (`package.json` commands + `activationEvents` + `view/title` button `navigation@4`, icons `media/icon/dark-scene.svg`).
+* Command `knps-pokemon.select-theme` (`package.json` commands + `activationEvents` + `view/title` button `navigation@4`, icons `media/icon/dark-scene.svg`).
 * Implementation `src/extension/extension.ts:1129-1157`: `ALL_THEMES.map` → `showQuickPick` (`$(circle-slash) None` / `$(device-camera) ${t}`), updates `theme` globally. Existing `onDidChangeConfiguration` listener repaints via `panel.updateTheme()+update()` automatically.
 
 ### 3.7 Phase 3 — Parallax Midground (✅ Shipped)
@@ -129,13 +129,13 @@ Added `volcano` (crater sky, basalt) + `snow` (icy plain, pine) — assets + `Th
 
 ### 3.8 Phase 4 — Day/Night Auto-Switching (✅ Shipped)
 
-* Setting `vscode-pokemon.dayNightCycle` boolean (default `false`).
+* Setting `knps-pokemon.dayNightCycle` boolean (default `false`).
 * `resolveSceneVariant(themeKind, dayNightCycle, hour)` (`main.ts:226-235`): if `dayNightCycle` then `hour>=19||hour<6 ? dark : light` else `themeKind===dark ? dark : light`.
 * Threaded via `extension.ts:1491-1517` options → `main.ts:696,708`; `startDayNightCycle()` sets 60s interval, clears on theme change / `stopAnimationLoop()`, repaints via `applySceneLayers`.
 
 ### 3.9 Phase 5 — Random Theme Rotation (✅ Shipped)
 
-* Setting `vscode-pokemon.randomTheme` boolean (default `false`).
+* Setting `knps-pokemon.randomTheme` boolean (default `false`).
 * `getConfiguredTheme()` (`extension.ts:74-96`): when enabled, `Math.random` over `ALL_THEMES.filter(t!==none)`, cached in `context.globalState` (`RANDOM_THEME_CACHE_KEY`) so reloads don't flicker. Uses `globalState` (fix F-6) for stable per-session cache.
 
 ---
@@ -143,7 +143,7 @@ Added `volcano` (crater sky, basalt) + `snow` (icy plain, pine) — assets + `Th
 ## 4. Rebrand, Hover Recall & Extras
 
 ### Phase R1 — Rebrand & Legal (✅ Done)
-`package.json`: `name: knp-pokemon`, `displayName: KNP Pokémon`, `publisher: Cyberknp`, `repository/homepage/bugs → Cyberknp/KNP-pokemon`, `version 0.1.0`. README credits block added. `.vscodeignore` excludes sources/tests/node_modules.
+`package.json`: `name: knps-pokemon`, `displayName: KNPs Pokémon`, `publisher: Cyberknp`, `repository/homepage/bugs → Cyberknp/KNP-pokemon`, `version 0.1.0`. README credits block added. `.vscodeignore` excludes sources/tests/node_modules.
 
 ### Phase R2 — Hover Pokéball Click-to-Recall (✅ Done)
 `src/panel/main.ts:386-404` inside `addPokemonToPanel()`: creates `div.pokeball-hover` inside `collision` (inherits `:hover`), `click` → `removePokemonFromPanel({name})` with `stopPropagation`. Respects party cap/reduced-motion via existing flows.
@@ -164,7 +164,7 @@ Added `volcano` (crater sky, basalt) + `snow` (icy plain, pine) — assets + `Th
 
 ## 5. Bug Fixes — Blockers & Follow-ups
 
-All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint 0 errors`, `npm run compile` success, `npm test 25 passed`).
+All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint 0 errors`, `npm run compile` success, `npm test 23 passed`).
 
 ### 🔴 Blockers
 
@@ -177,7 +177,7 @@ All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint
 
 | ID | File | Fix | Status |
 |---|---|---|---|
-| **S-1** `throwBallWithMouse` invisible | `package.json:232-236` declare `vscode-pokemon.throwBallWithMouse` bool default `true` | Appears in Settings UI | ✅ |
+| **S-1** `throwBallWithMouse` invisible | `package.json:232-236` declare `knps-pokemon.throwBallWithMouse` bool default `true` | Appears in Settings UI | ✅ |
 | **S-2** `dayNightTimer` leak | `src/panel/main.ts:158-165` `stopAnimationLoop()` clears `dayNightTimer`, `unload` listener | No leak on webview destroy | ✅ |
 | **S-3** Dead `browser` field | `package.json:49` removed `"browser": "./dist/web/extension-web.js"` | Clean manifest | ✅ |
 
@@ -188,7 +188,7 @@ All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint
 | **F-1** Hand-drawn art | `media/backgrounds/{volcano,snow}/*.png` procedural via `scripts/generate-backgrounds.mjs` | ✅ Placeholder done; swap with hand-drawn same filenames when ready | ✅ |
 | **F-2** Localize `None` | `src/extension/extension.ts:1138` + `l10n/bundle.l10n.en-US/Gb.json:35` `"None":"None"` | ✅ |
 | **F-3** Hardcoded `THEMES_WITH_MIDGROUND` | `src/common/types.ts:100` + `src/panel/main.ts:34-61` dynamic `hasMidgroundAsset()` (`Image` load + `midgroundCache`) | Runtime detection; constant kept with deprecation note for tests | ✅ |
-| **F-4** `castle/large` floor 120px | `src/panel/main.ts:192` | Manual Dev Host visual test pending | ⬜ Visual check needed |
+| **F-4** `castle/large` floor 120px | `src/panel/main.ts:192` | Verified per `Docs/TESTING_VIGNETTE.md` (castle/large visual check) | ✅ |
 | **F-5** Bad dep `typescript-eslint@^0.0.1-alpha.0` | `package.json:303` `npm uninstall typescript-eslint` | Removed (keep `@typescript-eslint/*@^5.29.0`) | ✅ |
 | **F-6** `randomTheme` workspace collision | `src/extension/extension.ts:36,485` `workspaceState→globalState` | `globalState` cache, no multi-workspace collision | ✅ |
 
@@ -198,7 +198,7 @@ All items from `BUG_FIXES_PLAN.md` are now **fixed and verified** (`npm run lint
 - [x] `throwBallWithMouse` in Settings
 - [x] No timer leak (open/close panel)
 - [x] No `browser` field
-- [x] `npm test` 25 passed
+- [x] `npm test` 23 passed
 - [x] `npm run lint` 0 errors (4 pre-existing warnings)
 - [x] `npm run compile` passes
 
@@ -222,9 +222,9 @@ npm run lint && npm run compile && npm test && git push origin develop
 
 **Rendering:** Absolutely-positioned `<img>` GIFs (`image-rendering:pixelated`), one shared 100ms loop (`ensureAnimationLoop`/`pauseAnimationLoop`/`stopAnimationLoop` in `main.ts:115-167`). Never per-Pokémon timers. Friend scan O(n²) every 5 ticks; position save every 30s; canvas + resize clamping.
 
-**State machine:** `src/panel/states.ts` — `States` enum, `FrameResult`, `resolveState()`, `AbstractStaticState` (holdTime) + `Walk/Run/Chase/ChaseFriend/Climb/Jump` classes. Transitions via `ISequenceTree` in `pokemon.ts`/`base-pokemon-type.ts`.
+**State machine:** `src/panel/states.ts` — `States` enum, `FrameResult`, `resolveState()`, `AbstractStaticState` (holdTime) + `Walk/Run/ChaseFriend/Climb/Jump` classes. Transitions via `ISequenceTree` in `pokemon.ts`/`base-pokemon-type.ts`.
 
-**Base class:** `BasePokemonType` — owns sprite element, `left/bottom`, `calculateSpriteWidth()`, ±30% speed randomization × size (nano 0.5×…large 1.25×), `faceLeft/faceRight` + `setAnimation()` swapping `${root}_{anim}_8fps.gif` (flips if no `left_facing` art), `nextFrame()` → friend chase → state tick → `resolveState`, `swipe()/chase()`, friend bubble.
+**Base class:** `BasePokemonType` — owns sprite element, `left/bottom`, `calculateSpriteWidth()`, ±30% speed randomization × size (nano 0.5×…large 1.25×), `faceLeft/faceRight` + `setAnimation()` swapping `${root}_{anim}_8fps.gif` (flips if no `left_facing` art), `nextFrame()` → friend chase → state tick → `resolveState`, `swipe()`, friend bubble.
 
 **Concrete:** `Pokemon` (`pokemon.ts`) → Pokédex lookup + sequence tree (`idle⇄walk`, `swipe→idle`) + `POKEMON_NAMES`. `PokemonCollection` (`pokemon-collection.ts`) → `PokemonElement` + `locate/remove/seekNewFriends()` (overlap → mutual `_friend`).
 
@@ -232,7 +232,7 @@ npm run lint && npm run compile && npm test && git push origin develop
 
 **Registry:** `pokemon-gen1–5.ts` → `pokemon-data.ts` (`getAllPokemon`, `getPokemonByGeneration`, `getRandomPokemonConfig[From]`).
 
-**Localization:** `localize.ts` loads `l10n/pokemon/{locale}/genN.json` per `pokemonLanguage`/`VS Code locale`.
+**Localization:** `localize.ts` returns English species names; UI strings localized via `vscode.l10n`.
 
 **Security:** CSP nonce + `asWebviewUri()`.
 
@@ -240,7 +240,7 @@ npm run lint && npm run compile && npm test && git push origin develop
 
 ## 7. Settings, Commands & Messaging
 
-### 7.1 Settings (`vscode-pokemon.*`)
+### 7.1 Settings (`knps-pokemon.*`)
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
@@ -252,7 +252,6 @@ npm run lint && npm run compile && npm test && git push origin develop
 | `throwBallWithMouse` | boolean | `true` | Click Pokémon to recall (S-1) |
 | `defaultPokemon` | array `{type,name?,shiny?,pool?}` | `[]` | Auto-spawn; `type:random` + pool |
 | `shinyOdds` | number ≥1 | `8192` | 1-in-N shiny |
-| `pokemonLanguage` | `auto/en-US` | `auto` | Name locale |
 | `maxPokemon` | 1–15 | `6` | Party cap |
 | `motion` | `system/always/reduced` | `system` | Honor OS reduced-motion |
 | `debug` | boolean | `false` | Webview logs (stripped in prod) |
@@ -261,7 +260,7 @@ npm run lint && npm run compile && npm test && git push origin develop
 
 | Command | Keybinding | Action |
 |---|---|---|
-| `vscode-pokemon.start` | — | Focus sidebar or create panel |
+| `knps-pokemon.start` | — | Focus sidebar or create panel |
 | `spawn-pokemon` | `Alt+Shift+W` | QuickPick type |
 | `spawn-random-pokemon` | `Alt+Shift+Q` | Random |
 | `delete-pokemon` | `Alt+Shift+D` | Pick one to recall |
@@ -269,12 +268,12 @@ npm run lint && npm run compile && npm test && git push origin develop
 | `roll-call` | — | Greeting toasts |
 | `select-theme` | title bar (explorer) | Scene QuickPick (Phase 2) |
 | `export-pokemon-list` / `import-pokemon-list` | — | JSON backup |
-| `configure-keybindings` / `change-pokemon-language` | — | UX helpers |
+| `configure-keybindings` | — | UX helper |
 
 ### 7.3 Messaging
 
-**Host → Webview:** `spawn-pokemon` (type/color/name/gen/size), `spawn-random-pokemon`, `delete-pokemon {name}`, `reset-pokemon`, `list-pokemon`, `roll-call`, `pause-pokemon`/`resume-pokemon`, `throw-with-mouse`, `set-size`, `throw-ball`.  
-**Webview → Host:** `info` / `alert` / `error` toasts, `list-pokemon` reply (`type,name,color` lines).
+**Host → Webview:** `spawn-pokemon` (type/color/name/gen/size), `spawn-random-pokemon`, `delete-pokemon {name}`, `reset-pokemon`, `list-pokemon`, `roll-call`, `pause-pokemon`/`resume-pokemon`, `throw-with-mouse`.  
+**Webview → Host:** `info` / `alert` / `error` toasts, `list-pokemon` reply (`type,name,color` lines), `pokemon-released` (recall sync).
 
 ---
 
@@ -305,7 +304,7 @@ npm run lint             # ESLint src --ext ts
 npm run lint:fix
 npm test                 # vitest run (jsdom)
 npm run optimize-assets  # gifsicle -O3 --lossy=80 + pngquant
-npx @vscode/vsce package && code --install-extension knp-pokemon-0.1.0.vsix
+npx @vscode/vsce package && code --install-extension knps-pokemon-0.1.0.vsix
 ```
 
 **Build:** `webpack.config.js` → `media/main-bundle.js`; `tsconfig.extension.json` → `out/` (CommonJS). Production: Terser minify.
@@ -330,7 +329,7 @@ npx @vscode/vsce package && code --install-extension knp-pokemon-0.1.0.vsix
 | `package.json` | Manifest, commands, keybindings, settings (incl. volcano/snow/dayNight/random/throwBall), scripts, no `browser` field |
 | `src/common/types.ts` | `Theme/Size/Color/ExtPosition`, `ALL_*`, `THEMES_WITH_MIDGROUND` (dynamic note) |
 | `src/common/pokemon-data.ts` + `pokemon-gen1–5.ts` | Registry + helpers |
-| `src/common/localize.ts` / `names.ts` | Translations / `randomName()` |
+| `src/common/localize.ts` / `names.ts` | English species names / `randomName()` |
 | `src/extension/extension.ts` | `getConfigured*`, `PokemonSpecification`, `activate()` (commands + config listener + serializer), `PokemonWebviewContainer` / `PokemonPanel` / `PokemonWebviewViewProvider` (uses `globalState` for random theme) |
 | `src/panel/main.ts` | Single loop, `FLOOR_HEIGHTS`, `hasMidgroundAsset`/`applySceneLayers`/`startDayNightCycle`, `add/removePokemon`, `save/recoverState`, `pokemonPanelApp`, resize/canvas |
 | `src/panel/states.ts` | State machine (`StandRight/Left` labels corrected) |
@@ -338,7 +337,7 @@ npx @vscode/vsce package && code --install-extension knp-pokemon-0.1.0.vsix
 | `media/pokemon.css` | All panel styling + parallax + animations |
 | `l10n/bundle.l10n.*.json` | `"None":"None"` included |
 | `scripts/generate-backgrounds.mjs` | Procedural background generator |
-| `tests/states.test.ts` / `backgrounds.test.ts` | 25 tests |
+| `tests/states.test.ts` / `backgrounds.test.ts` | 23 tests |
 | `Docs/` | This file + `codebase_handbook.md` / original plans archived |
 
 ---

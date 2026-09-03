@@ -12,8 +12,6 @@ import {
   resolveState,
   PokemonInstanceState,
   isStateAboveGround,
-  BallState,
-  ChaseState,
   HorizontalDirection,
   FrameResult,
   IPokemonType,
@@ -55,6 +53,8 @@ export abstract class BasePokemonType implements IPokemonType {
   private _size: PokemonSize;
   private _generation: string;
   private _originalSpriteSize: number;
+  private spriteBottomPad = 0;
+  private spritePadMeasured = false;
 
   constructor(
     spriteElement: HTMLImageElement,
@@ -79,6 +79,9 @@ export abstract class BasePokemonType implements IPokemonType {
     this._bottom = bottom;
     this._originalSpriteSize = originalSpriteSize;
     this.initSprite(size, left, bottom, originalSpriteSize);
+    // Once the first sprite image loads, measure its transparent bottom
+    // padding and sink the sprite so its feet sit exactly on the floor.
+    this.el.addEventListener('load', () => this.measureSpriteBottomPad());
     this.currentStateEnum = this.sequence.startingState;
     this.currentState = resolveState(this.currentStateEnum, this);
 
@@ -103,7 +106,7 @@ export abstract class BasePokemonType implements IPokemonType {
     );
 
     this.el.style.left = `${left}px`;
-    this.el.style.bottom = `${bottom}px`;
+    this.el.style.bottom = `${bottom - this.spriteBottomPad}px`;
     this.el.style.width = `${spriteSize}px`;
     this.el.style.height = `${spriteSize}px`;
 
@@ -112,12 +115,14 @@ export abstract class BasePokemonType implements IPokemonType {
     this.el.style.maxHeight = 'none';
 
     this.collision.style.left = `${left}px`;
-    this.collision.style.bottom = `${bottom}px`;
+    this.collision.style.bottom = `${bottom - this.spriteBottomPad}px`;
     this.collision.style.width = `${spriteSize}px`;
     this.collision.style.height = `${spriteSize}px`;
 
     this.speech.style.left = `${left}px`;
-    this.speech.style.bottom = `${bottom + spriteSize}px`;
+    this.speech.style.bottom = `${
+      bottom - this.spriteBottomPad + spriteSize
+    }px`;
     this.hideSpeechBubble();
   }
 
@@ -131,10 +136,11 @@ export abstract class BasePokemonType implements IPokemonType {
 
   private repositionAccompanyingElements() {
     this.collision.style.left = `${this._left}px`;
-    this.collision.style.bottom = `${this._bottom}px`;
+    this.collision.style.bottom = `${this._bottom - this.spriteBottomPad}px`;
     this.speech.style.left = `${this._left}px`;
     this.speech.style.bottom = `${
-      this._bottom +
+      this._bottom -
+      this.spriteBottomPad +
       this.calculateSpriteWidth(this._size, this._originalSpriteSize)
     }px`;
   }
@@ -156,8 +162,60 @@ export abstract class BasePokemonType implements IPokemonType {
 
   positionBottom(bottom: number): void {
     this._bottom = bottom;
-    this.el.style.bottom = `${this._bottom}px`;
+    this.el.style.bottom = `${this._bottom - this.spriteBottomPad}px`;
     this.repositionAccompanyingElements();
+  }
+
+  private measureSpriteBottomPad(): void {
+    if (this.spritePadMeasured) {
+      return;
+    }
+    this.spritePadMeasured = true;
+
+    const w = this.el.naturalWidth;
+    const h = this.el.naturalHeight;
+    if (!w || !h) {
+      return;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      return;
+    }
+    ctx.clearRect(0, 0, w, h);
+    ctx.drawImage(this.el, 0, 0, w, h);
+    let data: Uint8ClampedArray;
+    try {
+      data = ctx.getImageData(0, 0, w, h).data;
+    } catch {
+      return;
+    }
+
+    let maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 30) {
+          maxY = y;
+        }
+      }
+    }
+    if (maxY < 0) {
+      return;
+    }
+
+    const naturalPad = h - 1 - maxY;
+    if (naturalPad <= 0) {
+      return;
+    }
+    const renderedWidth = this.calculateSpriteWidth(
+      this._size,
+      this._originalSpriteSize,
+    );
+    this.spriteBottomPad = naturalPad * (renderedWidth / w);
+    this.positionBottom(this._bottom);
   }
 
   positionLeft(left: number): void {
@@ -277,11 +335,6 @@ export abstract class BasePokemonType implements IPokemonType {
     this.showSpeechBubble();
   }
 
-  chase(ballState: BallState, canvas: HTMLCanvasElement) {
-    this.currentStateEnum = States.chase;
-    this.currentState = new ChaseState(this, ballState, canvas);
-  }
-
   faceLeft() {
     this.el.style.transform = 'scaleX(-1)';
   }
@@ -365,14 +418,11 @@ export abstract class BasePokemonType implements IPokemonType {
       this.currentState = resolveState(nextState, this);
       this.currentStateEnum = nextState;
     } else if (frameResult === FrameResult.stateCancel) {
-      if (this.currentStateEnum === States.chase) {
-        const nextState = this.chooseNextState(States.idleWithBall);
-        this.currentState = resolveState(nextState, this);
-        this.currentStateEnum = nextState;
-      } else if (this.currentStateEnum === States.chaseFriend) {
-        const nextState = this.chooseNextState(States.idleWithBall);
-        this.currentState = resolveState(nextState, this);
-        this.currentStateEnum = nextState;
+      // Friend stopped playing - settle back to the starting idle state.
+      // (SitIdle is in every sequence, so this avoids InvalidStateError.)
+      if (this.currentStateEnum === States.chaseFriend) {
+        this.currentState = resolveState(States.sitIdle, this);
+        this.currentStateEnum = States.sitIdle;
       }
     }
   }
